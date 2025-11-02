@@ -3,18 +3,18 @@
 download.py — Albion Online item icon downloader with embedded name → identifier data.
 
 Usage:
-    python3 download.py [downloads.txt] [Downloads]
+    python3 download.py [downloads.txt] [downloads]
 
 Inputs:
 - downloads.txt lines (CSV): Name, tier[, enchant[, quality]]
-  * If the embedded identifier already begins with T1_…T8_, the tier may be omitted.
+  * If the embedded identifier already begins with T1_ through T8_, the tier may be omitted.
   * enchantment defaults to 0 (unenchanted)
   * quality defaults to 1 (common)
 
 Examples:
 Guardian Helmet, 6
 Cleric Robe, 6, 1, 4
-Transport Mammoth        # (tier omitted; embedded id is already T8_…)
+Transport Mammoth        # (tier omitted; embedded id is already T8_)
 """
 
 import csv
@@ -175,13 +175,18 @@ def build_url(identifier: str, quality: int) -> str:
         else f"{BASE_URL}{identifier}.png?quality={quality}"
     )
 
-def build_filename(name: str, tier: int, enchant: int, quality: int) -> str:
+def build_filename(name: str, tier: int, enchant: int, quality: int, *, include_tier: bool = True) -> str:
     """
-    Example:
-      Guardian Helmet 6.png
-      Cleric Robe 6.1 Excellent.png
+    Build an output filename.
+
+    Examples:
+      Guardian Helmet 6.png            (non-embedded tier → include tier)
+      Cleric Robe 6.1 Excellent.png    (non-embedded tier + enchant + quality)
+      Transport Mammoth.png            (embedded T8_… → omit tier)
     """
-    stem = f"{safe_file_stem(name)} {tier}"
+    stem = safe_file_stem(name)
+    if include_tier and tier != -1:
+        stem += f" {tier}"
     if enchant > 0:
         stem += f".{enchant}"
     if quality > 1:
@@ -222,9 +227,10 @@ def main() -> None:
             continue
 
         base_ident = name_to_ident[key]
+        has_embedded = has_tier_prefix(base_ident)
 
         # If caller supplied a tier that conflicts with an embedded Tn_ prefix, warn but prefer embedded.
-        if has_tier_prefix(base_ident):
+        if has_embedded:
             embedded_tier = extract_tier_from_ident(base_ident)
             if tier != -1 and tier != embedded_tier:
                 print(f"[WARN] '{name}': supplied tier {tier} ignored; using embedded tier {embedded_tier}.")
@@ -239,7 +245,13 @@ def main() -> None:
         try:
             ident, tier_for_filename = build_identifier(base_ident, tier, enchant)
             url = build_url(ident, quality)
-            out_file = os.path.join(output_dir, build_filename(name, tier_for_filename, enchant, quality))
+
+            # NEW: do not include tier in filename if the ident has an embedded Tn_ prefix
+            include_tier_in_name = not has_embedded
+            out_file = os.path.join(
+                output_dir,
+                build_filename(name, tier_for_filename, enchant, quality, include_tier=include_tier_in_name),
+            )
 
             download_one(url, out_file)
             print(f"[OK] {name} → {out_file}")
@@ -528,7 +540,7 @@ Satchel of Insight, BAG_INSIGHT
 Mule, T2_MOUNT_MULE
 Riding Horse, T3_MOUNT_HORSE
 Armored Horse, T5_MOUNT_ARMORED_HORSE
-Transport Ox, T3_MOUNT_OX
+Transport Ox, MOUNT_OX
 Giant Stag, T4_MOUNT_GIANTSTAG
 Moose, T6_MOUNT_GIANTSTAG_MOOSE
 Direwolf, T6_MOUNT_DIREWOLF
@@ -629,6 +641,45 @@ Berserk Potion, POTION_BERSERK
 Hellfire Potion, POTION_LAVA
 Gathering Potion, POTION_GATHER
 Tornado in a Bottle, POTION_TORNADO
+
+# FISH
+Common Rudd, T1_FISH_FRESHWATER_ALL_COMMON
+Striped Carp, T2_FISH_FRESHWATER_ALL_COMMON
+Albion Perch, T3_FISH_FRESHWATER_ALL_COMMON
+Bluescale Pike, T4_FISH_FRESHWATER_ALL_COMMON
+Spotted Trout, T5_FISH_FRESHWATER_ALL_COMMON
+Brightscale Zander, T6_FISH_FRESHWATER_ALL_COMMON
+Danglemouth Catfish, T7_FISH_FRESHWATER_ALL_COMMON
+River Sturgeon, T8_FISH_FRESHWATER_ALL_COMMON
+Common Herring, T1_FISH_SALTWATER_ALL_COMMON
+Striped Mackerel, T2_FISH_SALTWATER_ALL_COMMON
+Flatshore Plaice, T3_FISH_SALTWATER_ALL_COMMON
+Bluescale Cod, T4_FISH_SALTWATER_ALL_COMMON
+Spotted Wolffish, T5_FISH_SALTWATER_ALL_COMMON
+Strongfin Salmon, T6_FISH_SALTWATER_ALL_COMMON
+Bluefin Tuna, T7_FISH_SALTWATER_ALL_COMMON
+Steelscale Swordfish, T8_FISH_SALTWATER_ALL_COMMON
+Greenriver Eel, T3_FISH_FRESHWATER_FOREST_RARE
+Redspring Eel, T5_FISH_FRESHWATER_FOREST_RARE
+Deadwater Eel, T7_FISH_FRESHWATER_FOREST_RARE
+Upland Coldeye, T3_FISH_FRESHWATER_MOUNTAIN_RARE
+Mountain Blindeye, T5_FISH_FRESHWATER_MOUNTAIN_RARE
+Frostpeak Deadeye, T7_FISH_FRESHWATER_MOUNTAIN_RARE
+Stonestream Lurcher, T3_FISH_FRESHWATER_HIGHLANDS_RARE
+Rushwater Lurcher, T5_FISH_FRESHWATER_HIGHLANDS_RARE
+Thunderfall Lurcher, T7_FISH_FRESHWATER_HIGHLANDS_RARE
+Lowriver Crab, T3_FISH_FRESHWATER_STEPPE_RARE
+Drybrook Crab, T5_FISH_FRESHWATER_STEPPE_RARE
+Dusthole Crab, T7_FISH_FRESHWATER_STEPPE_RARE
+Greenmoor Clam, T3_FISH_FRESHWATER_SWAMP_RARE
+Murkwater Clam, T5_FISH_FRESHWATER_SWAMP_RARE
+Blackbog Clam, T7_FISH_FRESHWATER_SWAMP_RARE
+Shallowshore Squid, T3_FISH_SALTWATER_ALL_RARE
+Midwater Octopus, T5_FISH_SALTWATER_ALL_RARE
+Deepwater Kraken, T7_FISH_SALTWATER_ALL_RARE
+Whitefog Snapper, T3_FISH_FRESHWATER_AVALON_RARE
+Clearhaze Snapper, T5_FISH_FRESHWATER_AVALON_RARE
+Puremist Snapper, T7_FISH_FRESHWATER_AVALON_RARE
 
 # FOODS
 Grilled Fish, T1_MEAL_GRILLEDFISH
