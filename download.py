@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Albion Online item icon downloader.
+Albion Online item and spell icon downloader.
 
 Examples:
     download "Guardian Armor" 6 1 4
@@ -22,6 +22,7 @@ import urllib.parse
 import urllib.request
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
+from functools import lru_cache
 from io import StringIO
 from typing import Dict, Iterable, List, Mapping, Sequence, Tuple
 
@@ -51,7 +52,8 @@ Examples:
   download downloads.txt
 
 Notes:
-  a single quoted name downloads an English-localized spell icon
+  spell names are resolved to IDs using the embedded English spell catalog
+  known spell IDs are also accepted; ambiguous names list the matching IDs
   file lines use the same arguments as the command: "Name" [tier [enchant [quality]]]
   a name without item values is treated as a spell unless it is a known tierless item
   enchant defaults to 0
@@ -114,6 +116,38 @@ def parse_embedded_items(csv_text: str) -> Dict[str, ItemEntry]:
         if name and ident:
             catalog[norm_name(name)] = build_embedded_entry(name, ident)
     return catalog
+
+
+@lru_cache(maxsize=1)
+def load_spell_catalog() -> Tuple[Dict[str, Tuple[str, ...]], Dict[str, str]]:
+    names: Dict[str, List[str]] = {}
+    identifiers: Dict[str, str] = {}
+    for row in csv.reader(StringIO(SPELLS_CSV), skipinitialspace=True):
+        if not row or row[0].startswith("#"):
+            continue
+        name, identifier = row[:2]
+        identifiers[norm_name(identifier)] = identifier
+        # Recasts and item-specific variants remain accessible by their exact IDs.
+        if len(row) == 2:
+            names.setdefault(norm_name(name), []).append(identifier)
+    return {name: tuple(ids) for name, ids in names.items()}, identifiers
+
+
+def resolve_spell(name: str) -> str:
+    names, identifiers = load_spell_catalog()
+    key = norm_name(name)
+    identifier = identifiers.get(key)
+    # An exact uppercase ID takes precedence over a coincident English name.
+    if identifier == name.strip():
+        return identifier
+    matches = names.get(key, ())
+    if len(matches) == 1:
+        return matches[0]
+    if len(matches) > 1:
+        raise ValueError(f"Spell name '{name}' is ambiguous. Use an ID: {', '.join(matches)}.")
+    if identifier:
+        return identifier
+    raise ValueError(f"'{name}' is not in the spell catalog.")
 
 
 def build_embedded_entry(name: str, ident: str) -> ItemEntry:
@@ -253,7 +287,8 @@ def build_url(identifier: str, quality: int) -> str:
 
 
 def build_spell_url(name: str) -> str:
-    return f"{SPELL_BASE_URL}{urllib.parse.quote(name, safe='')}.png"
+    identifier = resolve_spell(name)
+    return f"{SPELL_BASE_URL}{urllib.parse.quote(identifier, safe='')}.png"
 
 
 def build_filename(name: str, tier: int, enchant: int, quality: int, *, include_tier: bool = True) -> str:
@@ -443,6 +478,13 @@ def bounded_worker_count(entries: Iterable[object]) -> int:
     return min(DEFAULT_WORKERS, count)
 
 
+def is_tierless_catalog_item(catalog: Mapping[str, ItemEntry], name: str) -> bool:
+    entry = catalog.get(norm_name(name))
+    return entry is not None and (
+        bool(entry.fixed_identifier) or len(entry.identifiers_by_tier) == 1
+    )
+
+
 def run_batch_entry(
     catalog: Mapping[str, ItemEntry], output_dir: str, entry: BatchRequest
 ) -> Tuple[str, str]:
@@ -450,7 +492,7 @@ def run_batch_entry(
     tier = entry.tier
     enchant = entry.enchant
     quality = entry.quality
-    if tier == -1 and enchant == 0 and quality == 1 and norm_name(name) not in catalog:
+    if tier == -1 and enchant == 0 and quality == 1 and not is_tierless_catalog_item(catalog, name):
         filename = safe_file_stem(name) + ".png"
         output_path = os.path.join(output_dir, filename)
         download_one(build_spell_url(name), output_path)
@@ -520,12 +562,7 @@ def run_single_download(
             print("[FAIL] Spell name cannot be empty.")
             return 1
 
-        entry = catalog.get(norm_name(name))
-        is_tierless_item = entry is not None and (
-            bool(entry.fixed_identifier) or len(entry.identifiers_by_tier) == 1
-        )
-
-        if is_tierless_item:
+        if is_tierless_catalog_item(catalog, name):
             try:
                 output_path = download_catalog_item_to_directory(
                     catalog, name, -1, 0, 1, output_dir
@@ -543,6 +580,9 @@ def run_single_download(
         output_path = os.path.join(output_dir, safe_file_stem(name) + ".png")
         try:
             download_one(build_spell_url(name), output_path)
+        except ValueError as exc:
+            print(f"[FAIL] {exc}")
+            return 1
         except (urllib.error.HTTPError, urllib.error.URLError, TimeoutError) as exc:
             print(f"[FAIL] Download failed for spell '{name}': {format_download_error(exc)}.")
             return 1
@@ -1132,6 +1172,649 @@ Dungeon Map (Solo), RANDOM_DUNGEON_SOLO_TOKEN_1
 Dungeon Map (Group), RANDOM_DUNGEON_TOKEN_1
 Dungeon Map (Large Group), RANDOM_DUNGEON_ELITE_TOKEN_1
 """
+
+# BEGIN EMBEDDED SPELLS
+SPELLS_CSV = """
+# English name, spell ID; optional third field 'id' means ID-only variant.
+# Player weapon and armour abilities/passives, including gathering armour and shapeshifter forms.
+# Includes recasts; excludes capes, mounts, consumables, tools, vanity, mobs, and internal effects.
+# Name lookup prefers the initial cast; different icons remain ambiguous.
+# Source: https://github.com/ao-data/ao-bin-dumps/tree/0be6a5e74f30fc1312118be3d017f3832f027cef
+# Generated by scripts/update_spells.py from localization, spells, items, transformations.
+Adapting Matter,SHAPE_Q_DAMAGE_AND_SHIELD
+Adrenaline Boost,AXEBOOST
+Adrenaline Driven Charity,PASSIVE_HEALPOWERCHANCE
+Aegis of Energy,ENERGYSHIELD2
+After Image,AFTER_IMAGE
+After Image,AFTER_IMAGE_RETURN,id
+Aftershock,LETHAL_CLEAVER
+Aggression,PASSIVE_ARMOR_INCREASED_DAMAGE,id
+Aggression,PASSIVE_INCREASED_DAMAGE
+Aggressive Caster,PASSIVE_CASTINGSPEED_CHANCE_FIRESTAFF
+Aggressive Caster,PASSIVE_CASTINGSPEED_CHANCE_FROSTSTAFF,id
+Aggressive Rush,PASSIVE_SPELLPOWER_CHANCE_AXE
+Aggressive Rush,PASSIVE_SPELLPOWER_CHANCE_DAGGER,id
+Aggressive Rush,PASSIVE_SPELLPOWER_CHANCE_SPEAR,id
+Air Compressor,PBAOE_PULL
+Altered Beast,PASSIVE_SHAPESHIFT_ATTACK_BUFF
+Ambush,AMBUSH
+Anguished Soul,CURSED_WALL
+Arcane Orb,ARCANEORB2
+Arcane Protection,SHIELDFRIENDLY
+Arctic Volley,FROST_TARGETED_CHANNEL
+Area of Decay,AREAOFDECAY
+Armor Piercer,ARMORPIERCER
+Ascended,PASSIVE_HOLY_ASCENDED
+Assassin Spirit,ASSASSINSPIRIT
+Authority,PASSIVE_ARMOR_CCDURATION,id
+Authority,PASSIVE_CCDURATION
+Auto Fire,AUTOFIRE2
+Auto-Attack Speed,PASSIVE_AASPEEDCHANCE_BOW
+Auto-Attack Speed,PASSIVE_AASPEEDCHANCE_DAGGER,id
+Auto-Attack Speed,PASSIVE_AASPEEDCHANCE_SPEAR,id
+Avalanche,ICEROCK_EXPLODE
+Avalonian Beam,AVALON_BEAM
+Backhand Strike,BACKHAND_KNOCKBACK
+Balanced Mind,PASSIVE_ARMOR_BALANCE,id
+Balanced Mind,PASSIVE_BALANCE
+Ballista Support Fire,ARTILLERY_COMMAND
+Bane,PASSIVE_CURSE
+Barbed Roots,ENT_CHANNEL_TREE
+Battle Frenzy,BATTLEFRENZY
+Battle Howl,SHRIEKMACE
+Battle Rush,AXE_CHARGE
+Bear Trap,BEARTRAP
+Black Hole,BLACKHOLE
+Blade Cyclone,SWORD_SPIN
+Blazing Geyser,BLAZING_GEYSER
+Blessed Aurora,BLESSED_MACES
+Blind Spot,BLINDSPOT
+Blink,BLINK
+Block,BLOCK
+Blood Bandit,AXETHROW
+Blood Bandit,AXETHROW_SECOND,id
+Blood Ritual,BLOOD_BLADE
+Blood Ritual,BLOOD_BLADE_MULTI,id
+Blood Ritual,BLOOD_BLADE_MULTI2,id
+Bloodlust,BLOODLUST
+Bloodthirsty Blade,BLOODTHIRSTYBLADE
+Bloody Reap,SCYTHESWING
+Boulder Crash,ROCK_ELEMENTAL_STONE_THROW
+Brambleseed,BRAMBLESEED
+Break Free,CLEANSE_DASH
+Breakthrough,LANCE_CHARGE
+Burn,PASSIVE_BURN
+Burning Field,FIRESTAFFBOLT_AOE
+Burning Momentum,WEAPON_SPRINT
+Calmness,PASSIVE_ARMOR_CASTER_ARCANESTAFF
+Calmness,PASSIVE_ARMOR_CASTER_NATURESTAFF,id
+Caltrops,CALTROPS
+Cartwheel,CARTWHEEL
+Cataclysm,CURSEULTIMATE
+Celestial Sphere,CELESTIAL_SPHERE
+Chain Missile,ARCANE_CHAIN_MISSILE
+Chain Slash,CHAINDASH
+Charge,CLAYMORECHARGE
+Circle of Inspiration,ENERGYFIELD
+Circle of Life,CIRCLEOFLIFE
+Cleanse,SELF_CLEANSE
+Cleanse Heal,CLEANSEHEAL
+Clinging Frost,PROTOTYPE_ICESHIELD
+Combustion,HUMAN_TORCH
+Concentration,PASSIVE_ARMOR_INCREASED_CASTSPEED,id
+Concentration,PASSIVE_CASTSPEED
+Concussive Combo,CONCUSSIVEBLOW_MULTI_1
+Concussive Combo,CONCUSSIVEBLOW_MULTI_2,id
+Concussive Combo,CONCUSSIVEBLOW_MULTI_3,id
+Conjure Magic,WILD_MAGIC_ROTATION_LOCK
+Corrupting Steel,TAINTED_STEEL
+Counter,KNUCKLE_COUNTER
+Courier,PASSIVE_MAXLOAD_SHOES
+Create Opening,CREATE_OPENING
+Create Opening,CREATE_OPENING_STRIKE,id
+Crescent Slash,MIGHTYSWING
+Cripple,LEGBREAKER
+Crush Charge,CHARGE_IN
+Crystal Cobra Transformation,SHAPESHIFT_CRYSTAL_COBRA
+Crystalburst,CRYSTAL_COBRA_SPIT
+Cursed Beam,CURSEDBEAM
+Cursed Sickle,CURSEBLADE
+Cursed Tar,CURSED_SPLAT
+Dark Matter,DARKMATTER
+Dark Sphere,ARCANE_METEOR
+Dash,GROUNDDASH
+Dawnbird Transformation,SHAPESHIFT_AVALONIAN_EAGLE
+Deadly Chop,AXESMASH
+Deadly Shot,DEADLYSHOT
+Deadly Swipe,QDASH
+Death Curse,DEATHCURSE2
+Deathward Climax,DUAL_RAPIDFIRE
+Deep Cuts,PASSIVE_BLEEDCHANCE
+Deep Leap,MACELEAP
+Defenseless Rush,GLASS_MOVESPEED
+Defensive Slam,DEFENSIVESLAM
+Deflecting Spin,DEFLECTINGSTANCE
+Delayed Teleport,DELAYED_TELEPORT
+Demon Arrow,HELL_ARROW
+Desecrate,CURSENOVA
+Desperate Prayer,HOLYDESPERATEPRAYER2
+Devastating Combo,KNUCKLECOMBO
+Disembowel,DISEMBOWEL
+Disorienting Shriek,PROTOTYPE_DISORIENT
+Displacement Immunity,DISRUPTIONIMMUNITY
+Distortion,SHAPE_W_DAMAGE_AOE
+Divine Engine,CROSSBOW_DIVINE_SHOT
+Divine Intervention,DIVINE_JUMP
+Divine Protection,HOLYSHIELD
+Divine Protection,HOLYSHIELD_MULTI,id
+Dodge,DODGE
+Dragon Leap,DASHKICK
+Dreadladen Fighting,PASSIVE_CCDURATION_CHANCE_HAMMER,id
+Dreadladen Fighting,PASSIVE_CCDURATION_CHANCE_MACE
+Dreadladen Fighting,PASSIVE_CCDURATION_CHANCE_QUARTERSTAFF,id
+Dual Nature,DUAL_NATURE
+Dynamic Defense,DYNAMIC_DEFENSE
+Earth Crusher,GROWING_PUNCH
+Earth Shatter,HAMMERWHIRLWIND2
+Efficiency,PASSIVE_ARMOR_REDUCED_ENERGYCOST,id
+Efficiency,PASSIVE_REDUCED_ENERGYCOST
+Elbow Smash,SHOULDERTACKLE
+Electric Discharge,ELECTRICSHOCK
+Electric Field,STORMSHIELD
+Elevated Nature,ROTTENVINES
+Emergency Shield,EMERGENCY_SHIELD
+Empowering Beam,EMPOWERBEAM
+Enchanted Quiver,SPEEDARCHER_KITE
+Enchanted Quiver,SPEEDARCHER_KITE_MULTI_DASH,id
+End Transformation,SHAPESHIFT_HUMAN
+End Transformation,SHAPESHIFT_WEREWOLF_TO_HUMAN,id
+Energetic,PASSIVE_ENERGYCHANCE_ARCANESTAFF,id
+Energetic,PASSIVE_ENERGYCHANCE_BOW
+Energetic,PASSIVE_ENERGYCHANCE_CROSSBOW,id
+Energetic,PASSIVE_ENERGYCHANCE_CURSEDSTAFF,id
+Energetic,PASSIVE_ENERGYCHANCE_FIRESTAFF,id
+Energetic,PASSIVE_ENERGYCHANCE_FROSTSTAFF,id
+Energetic,PASSIVE_ENERGYCHANCE_HAMMER,id
+Energetic,PASSIVE_ENERGYCHANCE_HOLYSTAFF,id
+Energetic,PASSIVE_ENERGYCHANCE_MACE,id
+Energetic,PASSIVE_ENERGYCHANCE_NATURESTAFF,id
+Energetic,PASSIVE_ENERGYCHANCE_QUARTERSTAFF,id
+Energetic Sprint,SPRINTEOT
+Energizing Shield,ENERGY_BARRIER
+Energy Emission,CASTBUBBLE
+Energy Source,MANADRAIN
+Enfeeble Aura,ENFEEBLEAURA
+Enfeeble Blades,ENFEEBLEBLADES
+Enigma Blade,ENIGMA_BLADE
+Ensnare,DUAL_NATURE_FLIP
+Ethereal Form,TRANSLUCENT
+Ethereal Path,ETHERIAL_PATH
+Evasive Jump,JUMP
+Everlasting Spirit,LIFESAVIOR
+Exploding Shot,EXPLODING_SHOT
+Explosive Arrows,BURNINGARROWS
+Explosive Bolt,BOLTSHOT
+Explosive Mine,GROUNDMINE
+Explosive Salvo,ACID_BOMB
+Eye of the Storm,MACE_CRYSTAL_FRAGMENT_STORM
+Eye of the Storm,MACE_CRYSTAL_FRAGMENT_STORM_MULTI1,id
+Eye of the Storm,MACE_CRYSTAL_FRAGMENT_STORM_MULTI2,id
+Falcon Smash,DIVEPUNCH_FALL,id
+Falcon Smash,DIVEPUNCH_RISE
+Fatal Blade,COMBATSTAFF_SLASH
+Fatal Fury,PASSIVE_KNUCKLE_BRAWLER
+Fatal Fury,PASSIVE_KNUCKLE_BRAWLER_SPEED,id
+Fatigue-Proof,SLOWSHIELD
+Fear Aura,FEAR_AURA
+Fearless Strike,CLAYMORESLASH
+Feral Bash,BEAR_GROUND_SMASH
+Fire Artillery,FIREARTILLERY
+Fire Bolt,FIRESTAFFBOLT2
+Fire Wave,FIRECONE
+Firebreath,HELMET_FIREBREATH
+Fireflash Orb,FLAME_ORB
+Fireflash Orb,FLAME_ORB_TELEPORT_EFFECT,id
+Fisherman Skills,PASSIVE_HEAD_YIELD_FISH_T4,id
+Fisherman Skills,PASSIVE_HEAD_YIELD_FISH_T5,id
+Fisherman Skills,PASSIVE_HEAD_YIELD_FISH_T6,id
+Fisherman Skills,PASSIVE_HEAD_YIELD_FISH_T7,id
+Fisherman Skills,PASSIVE_HEAD_YIELD_FISH_T8,id
+Fisherman Skills,PASSIVE_SHOES_YIELD_FISH_T4,id
+Fisherman Skills,PASSIVE_SHOES_YIELD_FISH_T5,id
+Fisherman Skills,PASSIVE_SHOES_YIELD_FISH_T6,id
+Fisherman Skills,PASSIVE_SHOES_YIELD_FISH_T7,id
+Fisherman Skills,PASSIVE_SHOES_YIELD_FISH_T8,id
+Fisherman Skills,PASSIVE_YIELD_FISH_T4
+Fisherman Skills,PASSIVE_YIELD_FISH_T5,id
+Fisherman Skills,PASSIVE_YIELD_FISH_T6,id
+Fisherman Skills,PASSIVE_YIELD_FISH_T7,id
+Fisherman Skills,PASSIVE_YIELD_FISH_T8,id
+Flame Blast,FIRESTAFFIGNITE2_SPREAD
+Flame Pillar,FLAMEPILLAR
+Flame Tornado,FLAMETORNADO
+Flaming Phoenix,FIREPHOENIX
+Flare,FLARE
+Flash of Insight,ARMOR_CD_RESET
+Flee,FLEE
+Fleet Footwork,CROSSSTEP_ROUNDHOUSE
+Flickershots,CRYSTALXBOW
+Flickershots,CRYSTALXBOW_MULTI_1,id
+Flickershots,CRYSTALXBOW_MULTI_2,id
+Fling,SHOVEL
+Flow,FLOWSHIELD
+Focused Run,CHANNELED_RUN
+Forbidden Stab,DEEPCUTS
+Force Field,PBAOE_KNOCKBACK
+Force of Nature,PRIMALSLAM
+Force Shield,FORCESHIELD
+Forceful Bolts,PASSIVE_KNOCKBACKCHANCE
+Forceful Swing,QS_WHIRLWIND2
+Forest of Spears,FORESTOFSPEARS
+Fortify,DUAL_NATURE_FLOP
+Frazzle,FRAZZLE2
+Freezing Wind,FREEZINGWIND
+Frenzied Slashes,PASSIVE_SHAPE_WEREWOLF
+Frost,PASSIVE_FROST
+Frost Beam,FROSTBEAM
+Frost Bomb,FROSTBOMB_CASTSLOW
+Frost Lance,FROST_LANCE
+Frost Nova,FROSTNOVA
+Frost Shield,FROSTSHIELD
+Frost Shot,JUMPSHOT2
+Frost Walk,FROSTWALK
+Frostbite,FROST_BITE
+Frozen Hell,GLACIALFIELD
+Frozen Surge,SHATTER_Q
+Furious,PASSIVE_SPELLPOWER_CASTER_CROSSBOW
+Furious,PASSIVE_SPELLPOWER_CASTER_CURSEDSTAFF,id
+Furious,PASSIVE_SPELLPOWER_CASTER_FIRESTAFF,id
+Furious,PASSIVE_SPELLPOWER_CASTER_FROSTSTAFF,id
+Fury,ENRAGE
+Gale Dance,QSTAFF_COMBO
+Generous Heal,GENEROUSHEAL
+Ghost Strike,GHOSTSTRIKE
+Giant,MAXHEALTHBUFF
+Giant Smash,GIANTSTEPS_SMASH
+Giant Steps,GIANTSTEPS
+Glacial Obelisk,ICE_SCULPTURE
+Glacial Obelisk,ICE_SCULPTURE_EXPLODE,id
+Glacial Prison,FROZEN_CRYSTAL
+Glide,PROTOTYPE_GLIDE
+Grasp of the Undead,UNDEADHAND
+Gravitas,ROOTFIELD
+Gravitas,ROOTFIELD_EFFECT,id
+Gravitational Collapse,IMPULSE_PUNCH
+Ground Pound,RAM_CHARGE
+Ground Shaker,GROUNDSHAKER
+Groundbreaker,GROUNDBREAKER2
+Growing Rage,GROWING_RAGE
+Grudge,CURSEDHANDS_STACKUP
+Guard Rune,GUARDRUNE
+Hail,HAIL_MULTI_1
+Hail,HAIL_MULTI_2,id
+Hamstring,HAMSTRINGSWORD
+Hard to Catch,PASSIVE_KNUCKLE_COMBOBREAKER
+Harpoon,SKILLSHOT_PULL
+Harvesting Skills,PASSIVE_HEAD_YIELD_FIBER_T4,id
+Harvesting Skills,PASSIVE_HEAD_YIELD_FIBER_T5,id
+Harvesting Skills,PASSIVE_HEAD_YIELD_FIBER_T6,id
+Harvesting Skills,PASSIVE_HEAD_YIELD_FIBER_T7,id
+Harvesting Skills,PASSIVE_HEAD_YIELD_FIBER_T8,id
+Harvesting Skills,PASSIVE_SHOES_YIELD_FIBER_T4,id
+Harvesting Skills,PASSIVE_SHOES_YIELD_FIBER_T5,id
+Harvesting Skills,PASSIVE_SHOES_YIELD_FIBER_T6,id
+Harvesting Skills,PASSIVE_SHOES_YIELD_FIBER_T7,id
+Harvesting Skills,PASSIVE_SHOES_YIELD_FIBER_T8,id
+Harvesting Skills,PASSIVE_YIELD_FIBER_T4
+Harvesting Skills,PASSIVE_YIELD_FIBER_T5,id
+Harvesting Skills,PASSIVE_YIELD_FIBER_T6,id
+Harvesting Skills,PASSIVE_YIELD_FIBER_T7,id
+Harvesting Skills,PASSIVE_YIELD_FIBER_T8,id
+Haste,HASTE
+Haunting Screams,SKULLCURSE
+Hellfire Barrage,IMP_BEAM
+Hellfire Imp Transformation,SHAPESHIFT_IMP
+Heroic Cleave,CLEAVE
+Heroic Fighting,PASSIVE_HEROICSTACK
+Heroic Strike,HEROICSTRIKE2
+Hide Animal Poison,HOTSHIELD
+Hit and Run,PASSIVE_MOVESPEED_CHANCE_CURSEDSTAFF
+Hit and Run,PASSIVE_MOVESPEED_CHANCE_NATURESTAFF,id
+Holy Beam,HEALINGBEAM
+Holy Blessing,HOLYHOT
+Holy Explosion,HOLYEXPLOSION
+Holy Flash,HOLYFLASH
+Holy Orb,HOLYORB
+Holy Touch,HOLYTOUCH
+Hover,HOVER_SPRINT
+Howl,HOWL
+Hundred Striking Fists,PUMMELING_STRIKES
+Hurricane,QSWHIRLWIND
+Hush,PASSIVE_SILENCECHANCE
+Hush,WEAPON_SILENCE
+Hyper Focus,HYPER_FOCUS
+Hyperstatic,CRYSTALWAVE
+Ice Block,ICEBLOCK2
+Ice Crystal,FROST_ULTIMATE
+Ice Shard,ICESHARD
+Ice Storm,ICESTORM2
+Immortal,IMMORTAL
+Impaler,GROUNDSPEAR
+Increased Defense,PASSIVE_ARMORCHANCE_AXE
+Increased Defense,PASSIVE_ARMORCHANCE_SWORD,id
+Inertia Ring,TAR_RING
+Infected Scrapes,PASSIVE_SHAPE_PANTHER
+Infernal Boulder,BOULDER_TOSS
+Inferno Shield,FLAMESHIELD
+Innate Power,PASSIVE_SHAPESHIFT_GATHER_CHARGES
+Inner Corruption,INNER_CORRUPTION
+Inner Focus,CHARGINGBLADE
+Inner Shadow,DYNAMIC_CURSE
+Internal Bleeding,INNERBLEEDING
+Interrupt,INTERRUPT2
+Intimidating Presence,PASSIVE_SHAPESHIFT_Q_CAST_DAMAGE_REDUCE
+Iron Breaker,IRONBREAKER
+Iron Will,DEFENSERUN
+Judgment,AVALON_EAGLE_AIR_STRIKE
+Knockback Shot,KNOCKBACKSHOT2
+Knockout,KNOCKOUT
+Levitate,LEVITATE
+Life Leech,PASSIVE_HEALTHCHANCE_AXE
+Life Leech,PASSIVE_HEALTHCHANCE_DAGGER,id
+Life Leech,PASSIVE_HEALTHCHANCE_HAMMER,id
+Life Leech,PASSIVE_HEALTHCHANCE_MACE,id
+Life Leech,PASSIVE_HEALTHCHANCE_QUARTERSTAFF,id
+Life Leech,PASSIVE_HEALTHCHANCE_SPEAR,id
+Life Steal Aura,LIFESTEALAURA
+Light Spark,PASSIVE_SHAPE_EAGLE
+Limitbreaker,SWORD_BERSERK_RUN_RE
+Lingering Power,PASSIVE_ATTACKBUFF_ARCANESTAFF
+Living Armor,BRIEROFLIFE
+Lucent Hawk,HAWK_SHOT_MULTI1
+Lucent Hawk,HAWK_SHOT_MULTI2,id
+Lucent Hawk,HAWK_SHOT_MULTI3,id
+Lucent Hawk,HAWK_SHOT_MULTI4,id
+Lumberjack Skills,PASSIVE_HEAD_YIELD_WOOD_T4,id
+Lumberjack Skills,PASSIVE_HEAD_YIELD_WOOD_T5,id
+Lumberjack Skills,PASSIVE_HEAD_YIELD_WOOD_T6,id
+Lumberjack Skills,PASSIVE_HEAD_YIELD_WOOD_T7,id
+Lumberjack Skills,PASSIVE_HEAD_YIELD_WOOD_T8,id
+Lumberjack Skills,PASSIVE_SHOES_YIELD_WOOD_T4,id
+Lumberjack Skills,PASSIVE_SHOES_YIELD_WOOD_T5,id
+Lumberjack Skills,PASSIVE_SHOES_YIELD_WOOD_T6,id
+Lumberjack Skills,PASSIVE_SHOES_YIELD_WOOD_T7,id
+Lumberjack Skills,PASSIVE_SHOES_YIELD_WOOD_T8,id
+Lumberjack Skills,PASSIVE_YIELD_WOOD_T4
+Lumberjack Skills,PASSIVE_YIELD_WOOD_T5,id
+Lumberjack Skills,PASSIVE_YIELD_WOOD_T6,id
+Lumberjack Skills,PASSIVE_YIELD_WOOD_T7,id
+Lumberjack Skills,PASSIVE_YIELD_WOOD_T8,id
+Lunging Stabs,RAPIERSTAB
+Lunging Strike,SPEAR_LUNGE
+Magic Arrow,SKILLSHOT_STUN
+Magic Force,PASSIVE_KNOCKBACK_CASTER_HOLYSTAFF
+Magic Pollen,MAGICMUSHROOM
+Magic Rune,MAGICCIRCLE
+Magic Shock,MAGICSHOCK
+Magma Sphere,MAGMASPHERE
+Majestic Smash,MAJESTIC_SMASH
+Mark of Sacrifice,DEATHMARK
+Meditation,SUMMONER_CD_REDUCTION
+Melting Point,PASSIVE_SHAPE_IMP
+Mend Wounds,OUTOFCOMBATHEAL
+Merciless Finish,BACK_SLASH
+Meteor,METEOR
+Mighty Blow,MIGHTYBLOW
+Mimic,MIMIC
+Mining Skills,PASSIVE_HEAD_YIELD_ORE_T4,id
+Mining Skills,PASSIVE_HEAD_YIELD_ORE_T5,id
+Mining Skills,PASSIVE_HEAD_YIELD_ORE_T6,id
+Mining Skills,PASSIVE_HEAD_YIELD_ORE_T7,id
+Mining Skills,PASSIVE_HEAD_YIELD_ORE_T8,id
+Mining Skills,PASSIVE_SHOES_YIELD_ORE_T4,id
+Mining Skills,PASSIVE_SHOES_YIELD_ORE_T5,id
+Mining Skills,PASSIVE_SHOES_YIELD_ORE_T6,id
+Mining Skills,PASSIVE_SHOES_YIELD_ORE_T7,id
+Mining Skills,PASSIVE_SHOES_YIELD_ORE_T8,id
+Mining Skills,PASSIVE_YIELD_ORE_T4
+Mining Skills,PASSIVE_YIELD_ORE_T5,id
+Mining Skills,PASSIVE_YIELD_ORE_T6,id
+Mining Skills,PASSIVE_YIELD_ORE_T7,id
+Mining Skills,PASSIVE_YIELD_ORE_T8,id
+Mist Cloud,MIST_WALKER
+Morgana Raven,SHOCKWAVE
+Mortal Agony,SMELLOFBLOOD
+Motivating Cleanse,CLEANSESPEED2
+Motivating Pain,PAINSPRINT
+Motivating Worker's Song,CC_IMMUNITY
+Multishot,MULTISHOT2
+Mystic Rocks,QS_SLOWROPE
+Mythical Web,ARMOR_WEB
+Nasty Wounds,NASTY_WOUNDS
+Neurotoxin,PASSIVE_SHAPE_CRYSTAL_COBRA
+Noise Eraser,SILENCINGBOLT
+Obsessive Burst,SPELLRUSH
+Onslaught,SPINNING_SMASH
+Parry Strike,PARRY
+Perpetual Energy,PERPETUALENERGY
+Phantom Slash,QS_CRYSTAL_COMBO_MULTI3
+Phantom Twin,QS_CRYSTAL_COMBO
+Phantom Twin,QS_CRYSTAL_COMBO_MULTI2,id
+Piercing Arrows,PASSIVE_ARMOR_PIERCE_STACK
+Piercing Light,AVALON_EAGLE_LASER
+Plaguebringer,CURSE_SKELETON_BARF_FDHR
+Poisoned Arrow,POISONARROW
+Polymorph,SHAPE_W_POLYMORPH
+Position Swap,SWAP
+Positional Drift,SHAPE_W_AREA_PULL
+Pounce,PANTHER_POUNCE
+Power Geyser,GEYSER
+Powerful Impact,PASSIVE_SHAPE_ROCK_ELEMENTAL
+Powerful Swing,HAMMER_SHOVE
+Premonition,CC_BLOCK
+Protection of Nature,NATURERESILIENCE
+Protection of the Fiends,REFLECTAREA
+Protective Beam,INVULNERABILITY
+Protective Instinct,PASSIVE_PLATEARMOR_THREATGENERATION
+Pulse Shock,SHAPE_Q_CONE_MELEE
+Purge,PURGE_HELMET
+Purging Shield,PURGINGSHIELD
+Purging Shield,PURGINGSHIELD2,id
+Purifying Combination,TRIPLECOMBO_DIVEKICK
+Purifying Combination,TRIPLECOMBO_POWERPUNCH,id
+Purifying Smoke,PURIFYING_SMOKE
+Pyroblast,PYROBLAST_SKILLSHOT
+Quarrying Skills,PASSIVE_HEAD_YIELD_ROCK_T4,id
+Quarrying Skills,PASSIVE_HEAD_YIELD_ROCK_T5,id
+Quarrying Skills,PASSIVE_HEAD_YIELD_ROCK_T6,id
+Quarrying Skills,PASSIVE_HEAD_YIELD_ROCK_T7,id
+Quarrying Skills,PASSIVE_HEAD_YIELD_ROCK_T8,id
+Quarrying Skills,PASSIVE_SHOES_YIELD_ROCK_T4,id
+Quarrying Skills,PASSIVE_SHOES_YIELD_ROCK_T5,id
+Quarrying Skills,PASSIVE_SHOES_YIELD_ROCK_T6,id
+Quarrying Skills,PASSIVE_SHOES_YIELD_ROCK_T7,id
+Quarrying Skills,PASSIVE_SHOES_YIELD_ROCK_T8,id
+Quarrying Skills,PASSIVE_YIELD_ROCK_T4
+Quarrying Skills,PASSIVE_YIELD_ROCK_T5,id
+Quarrying Skills,PASSIVE_YIELD_ROCK_T6,id
+Quarrying Skills,PASSIVE_YIELD_ROCK_T7,id
+Quarrying Skills,PASSIVE_YIELD_ROCK_T8,id
+Quick Thinker,PASSIVE_ARMOR_CD_REDUCTION,id
+Quick Thinker,PASSIVE_CD_REDUCTION
+Rage,PASSIVE_KNUCKLE_RAGE
+Raging Blades,BLADE_AURA
+Raging Blink,DMG_BLINK
+Raging Blink,DMG_BLINK_MULTI2,id
+Raging Flare,SKILLSHOT_FIREBALL
+Raging Storm,LIGHTNING_ARROW
+Rain of Arrows,ARROWRAIN
+Ray of Light,GROUNDARROW
+Razor Cut,DUALAXE_CRAWLER
+Razor's Edge,SPEAR_AOE_FINISHER
+Reality Fissure,SHAPE_Q_SKILLSHOT
+Reawaken,RESURRECTION
+Reckless Charge,DASHDMG
+Refreshing Sprint,SPRINT_CD_REDUCTION
+Rejuvenating Breeze,REJUVENATING_BREEZE
+Rejuvenating Flower,REJUVMUSHROOM_GRENADE
+Rejuvenating Sprint,SPRINTHOT
+Rejuvenation,REJUVENATION
+Relentless Assault,CRYSTAL_SCYTHE_DASH_ZONE
+Relentless Reap,CRYSTAL_SCYTHE_DASH_MULTI
+Rending Rage,RENDINGCOMBO
+Rending Rage,RENDINGCOMBO_MULTI2,id
+Rending Rage,RENDINGCOMBO_MULTI3,id
+Rending Spin,RENDINGSPIN
+Rending Strike,RENDINGSTRIKE
+Requite,REFLECT_CHANNEL
+Retaliate,RETALIATE2
+Revitalize,REANIMATE
+Ring of Death,CRYSTAL_DAGGER_BLADE_RING
+Ring of Death,CRYSTAL_DAGGER_BLADE_RING_RECALL,id
+Rip Through,WEREWOLF_DASH
+Rising Blow,LAUNCHER
+Rooting Smash,HALBERDSMASH
+Rotten Fish,THROWINGFISH
+Rotten Ground,DEMONWALK
+Royal Banner,ROYAL_BANNER
+Royal March,ROYAL_MARCH
+Rule Bender,PASSIVE_SHAPESHIFT_W_CAST_SPEED_BUFF
+Runestone Golem Transformation,SHAPESHIFT_ROCK_ELEMENTAL
+Rush,OVERSPRINT
+Rushdown,PASSIVE_KNUCKLE_RUSHDOWN
+Sacred Ground,SACRED_GROUND
+Sacred Pulse,PULSINGHEAL
+Sacrifice,SACRIFICE_HEAL
+Salvation,HOLY_ULTIMATE
+Sanctify,HOLY_DISPEL
+Scent of the Wilderness,FLEE_MOB
+Searing Flame,SEARING_FLAME
+Seedling's Bloom,ENT_HEAL_AREA
+Seismic Tremor,HAMMER_TREMOR
+Self Ignition,BURNAURA
+Separator,SEPARATING_SLAM
+Serpent's Gaze,CRYSTAL_COBRA_PETRIFY
+Shadow Edge,SKILLSHOT_TELEPORT
+Shadow Panther Transformation,SHAPESHIFT_PANTHER
+Shield Charge,CHARGE_SHIELD
+Shockwave,SHOCKWAVE_PUNCH
+Shrinking Curse,SHRINKINGSMASH
+Sinister Swipes,PANTHER_CLAWS
+Skinning Skills,PASSIVE_HEAD_YIELD_HIDE_T4,id
+Skinning Skills,PASSIVE_HEAD_YIELD_HIDE_T5,id
+Skinning Skills,PASSIVE_HEAD_YIELD_HIDE_T6,id
+Skinning Skills,PASSIVE_HEAD_YIELD_HIDE_T7,id
+Skinning Skills,PASSIVE_HEAD_YIELD_HIDE_T8,id
+Skinning Skills,PASSIVE_SHOES_YIELD_HIDE_T4,id
+Skinning Skills,PASSIVE_SHOES_YIELD_HIDE_T5,id
+Skinning Skills,PASSIVE_SHOES_YIELD_HIDE_T6,id
+Skinning Skills,PASSIVE_SHOES_YIELD_HIDE_T7,id
+Skinning Skills,PASSIVE_SHOES_YIELD_HIDE_T8,id
+Skinning Skills,PASSIVE_YIELD_HIDE_T4
+Skinning Skills,PASSIVE_YIELD_HIDE_T5,id
+Skinning Skills,PASSIVE_YIELD_HIDE_T6,id
+Skinning Skills,PASSIVE_YIELD_HIDE_T7,id
+Skinning Skills,PASSIVE_YIELD_HIDE_T8,id
+Sky Fall,PROTOTYPE_SKYFALL
+Sky's Fury,AIR_RAID
+Slit Throat,EXECUTEDAGGER
+Slow Poison,PASSIVE_SLOWPOISON
+Slowing Charge,CHARGESLOWAE
+Smite,SMITE_AOE
+Smokebomb,SMOKEBOMB
+Snare Charge,CHARGE_ROOT
+Snipe Shot,SNIPESHOT_CROSSBOW
+Soaring Swipe,DASH_KNOCKBACK
+Soul Chain,ARMORCHAIN
+Soul Link,SOUL_LINK
+Soul Link,SOUL_LINK_MULTISPELL2,id
+Soul Shaker,SOULSHAKER
+Soul Shaker,SOULSHAKER_MULTI2,id
+Soulless Stream,BLADE_AREA
+Spear Throw,SPEARTHROW
+Spectral Run,INVISIBLE_WALK
+Spectral Trident,TRIDENTTHROW
+Speed Caster,SPEEDCASTER
+Speed Shot,SPEEDSHOT2
+Speed Shot,SPEEDSHOT2_MULTI,id
+Spider's Thread,SPIDER_THREAD
+Spinning Blades,SPINATTACK
+Spirit Animal,SPIRITANIMAL
+Spirit Bear Transformation,SHAPESHIFT_BEAR
+Spirit Crush,PASSIVE_PLATEARMOR_HEALTH_REDUCTION
+Spirit of Vengeance,ROOTSHIELD
+Spirit Spear,SPIRITSPEAR
+Spiritual Seed,NATURE_ULTIMATE_SINGLE
+Spiritual Seed,NATURE_ULTIMATE_SINGLE_MULTI2,id
+Spiritual Seed,NATURE_ULTIMATE_SINGLE_MULTI3,id
+Splash Wave,SPLASHWAVE
+Splitting Slash,SPLITTINGSLASH
+Spontaneous Combustion,FLAMEDASH
+Spore Burst,PASSIVE_SHAPE_ENT
+Sprint Shield,MOVEMENTSHIELD
+Starfall,STARFALL_DOT
+Stone Skin,STONESKIN
+Stun Run,STUNRUN
+Stunning Strike,PASSIVE_STUNCHANCE
+Stunning Strike,PASSIVE_STUNCHANCE_QUARTERSTAFF,id
+Sunder Armor,SUNDERARMOR2
+Sunder Shot,SUNDERSHOT
+Sweeping Bolt,CROSSBOW_ARMORPIERCER
+Swift Cut,ASSASSIN_DASH
+Swiftness,PASSIVE_ARMOR_INCREASED_AASPEED,id
+Swiftness,PASSIVE_INCREASED_AASPEED
+Swipes,PASSIVE_SHAPE_BEAR
+Sylvian Transformation,SHAPESHIFT_ENT
+Tackle,HAMMERTACKLE
+Taunt,TAUNT
+Tear Apart,RENDINGSWING
+Tear Open,WEREWOLF_TEAR_APART
+Tectonic Shift,ROCK_ELEMENTAL_SPLITTING_EARTH
+Tectonic Slam,ROCK_ELEMENTAL_SPLITTING_EARTH_MULTI1
+Tenacity,PASSIVE_ARMOR_INCREASED_CCR,id
+Tenacity,PASSIVE_INCREASED_CCR
+Tether Shift,SHAPE_W_TETHERBEAM
+The Void,VOID
+Thorn Growth,THORNSAREA
+Thorn Growth,THORNSAREA_MULTI,id
+Thorn Growth,THORNSAREA_MULTI2,id
+Threatening Smash,THREATENINGSMASH
+Threatening Strike,THREATENINGSTRIKE_HAMMER
+Throwing Blades,THROWINGBLADES
+Time Corridor,ARCANECORRIDOR
+Time Freeze,TIME_FREEZE
+Tornado,TORNADO
+Toughness,PASSIVE_ARMOR_MR_AR,id
+Toughness,PASSIVE_MR_AR
+Tree Trunks,TREETRUNKS
+Triple Kick,TRIPLE_KICK
+Undead Arrows,UNDEADARROWS
+Unstable Projectile,SHAPE_Q_CAST
+Unstoppable Rush,CONEPUNCH2
+Unstoppable Rush,CONEPUNCH2_DASH2,id
+Vault Leap,VAULT_ATTACK
+Vendetta,VACUUMSLASH
+Vengeful Sprint,BERSERK_SPRINT
+Vicious Barrage,CROSSBOW_CONE_ULTIMATE
+Vile Curse,CURSEDOT
+Wall of Flames,FIREWALL
+Wanderlust,WANDERLUST
+Water Shield,WATERSHIELD
+Weakening,PASSIVE_REDUCE_DMG_SWORD
+Well Of Life,WELLOFLIFE2
+Well-Prepared,PASSIVE_CD_RESET_Q
+Werewolf Transformation,SHAPESHIFT_WEREWOLF
+Whirling Strikes,WHIRLING_STAFF
+Whirlwind,AXEWHIRLWIND2
+Wild Magic,WILD_MAGIC
+Wild Onslaught,BEAR_DASH_THROUGH
+Wild Onslaught,BEAR_ROAR,id
+Wind Shield,WINDSHIELD
+Wind Wall,WINDWALL
+Wings of Fire,IMMUNEAREA
+"""
+# END EMBEDDED SPELLS
+
 
 if __name__ == "__main__":
     raise SystemExit(main())

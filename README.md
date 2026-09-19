@@ -28,6 +28,10 @@ download "Item Name" <tier> [enchant] [quality]
 download requests.txt
 ```
 
+Spell names are matched case-insensitively against the embedded English catalogue, then downloaded by ID. For example, `download "Heroic Cleave"` uses `CLEAVE` and saves `Heroic Cleave.png`. Known spell IDs are also accepted; exact uppercase IDs take precedence over names. Unknown names fail; ambiguous names list the IDs to choose from.
+
+The spell catalogue covers 469 English names for player weapon and armour abilities and passives, including gathering armour, shapeshifter forms, and recasts. Its 631 IDs include variants shared across items and tiers, from the [8 September 2026 game-data dump](https://github.com/ao-data/ao-bin-dumps/tree/0be6a5e74f30fc1312118be3d017f3832f027cef). Cape, mount, consumable, tool, vanity, and mob spells are excluded.
+
 Item values are: tier `1`–`8`, enchant `0`–`4` (default `0`), and quality `1`–`5` (default `1`):
 
 ```text
