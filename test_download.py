@@ -28,6 +28,153 @@ class FakeResponse:
 
 
 class DownloadTests(unittest.TestCase):
+    def test_unquoted_item_writes_requested_filename_in_all_modes(self):
+        line = "Hunter Shoes 8 1 4"
+        for mode in ("command", "interactive", "file"):
+            with self.subTest(mode=mode), tempfile.TemporaryDirectory() as directory:
+                requests = Path(directory) / "items.txt"
+                if mode == "file":
+                    requests.write_text(line + "\n", encoding="utf-8")
+                args = {"command": line.split(), "interactive": [], "file": [str(requests)]}[mode]
+                output = io.StringIO()
+                with patch.object(download.os, "getcwd", return_value=directory), patch.object(
+                    download.sys, "stdin", io.StringIO(line + "\nexit\n")
+                ), patch.object(
+                    download.urllib.request, "urlopen", return_value=FakeResponse()
+                ) as fetch, contextlib.redirect_stdout(output):
+                    status = download.main(args)
+
+                target = Path(directory) / "Hunter Shoes 8.1 Excellent.png"
+                self.assertEqual(status, 0)
+                self.assertEqual(target.read_bytes(), b"png")
+                fetch.assert_called_once_with(
+                    "https://render.albiononline.com/v1/item/T8_SHOES_LEATHER_SET2@1.png?quality=4",
+                    timeout=download.TIMEOUT,
+                )
+                if mode == "file":
+                    self.assertEqual(requests.read_text(encoding="utf-8"), "")
+                else:
+                    self.assertEqual(output.getvalue(), f"[OK] Downloaded 'Hunter Shoes' to {target}\n")
+
+    def test_unquoted_names_preserve_defaults_punctuation_and_spell_ids(self):
+        catalog = download.load_item_catalog()
+        for line, endpoint, filename in (
+            ("Bow of Badon 8", "item/T8_2H_BOW_KEEPER", "Bow of Badon 8"),
+            ("Guardian Armor 6 2", "item/T6_ARMOR_PLATE_SET3@2", "Guardian Armor 6.2"),
+            ("Vendetta's Wrath 8", "item/T8_2H_FIRESTAFF", "Vendetta's Wrath 8"),
+            ("Iron-clad Staff 6", "item/T6_2H_IRONCLADEDSTAFF", "Iron-clad Staff 6"),
+            ("Siphoned Energy", "item/UNIQUE_GVGTOKEN_GENERIC", "Siphoned Energy"),
+            ("Heroic Cleave", "spell/CLEAVE", "Heroic Cleave"),
+            ("HEROICSTRIKE2", "spell/HEROICSTRIKE2", "HEROICSTRIKE2"),
+        ):
+            with self.subTest(line=line), patch.object(download, "download_one") as fetch:
+                with contextlib.redirect_stdout(io.StringIO()):
+                    status = download.run_single_download(catalog, line.split(), "/tmp")
+
+                self.assertEqual(status, 0)
+                fetch.assert_called_once_with(
+                    "https://render.albiononline.com/v1/" + endpoint + ".png",
+                    "/tmp/" + filename + ".png",
+                )
+
+    def test_invalid_unquoted_item_values_do_not_download(self):
+        catalog = download.load_item_catalog()
+        for line, error in (
+            ("Hunter Shoes 99", "Invalid tier"),
+            ("Hunter Shoes -1", "Invalid tier"),
+            ("Hunter Shoes 8 5", "Invalid enchantment"),
+            ("Hunter Shoes 8 one 4", "Invalid enchantment"),
+            ("Hunter Shoes 8 1 0", "Invalid quality"),
+            ("Hunter Shoes 8 1 4.0", "Invalid quality"),
+            ("Hunter Shoes 8 1 4 extra", "Expected:"),
+            ("Hunter Shoes 8 1 4 2", "Expected:"),
+            ("8 1 4", "Name cannot be empty"),
+        ):
+            with self.subTest(line=line), patch.object(download, "download_one") as fetch:
+                output = io.StringIO()
+                with contextlib.redirect_stdout(output):
+                    status = download.run_single_download(catalog, line.split(), "/tmp")
+
+                self.assertEqual(status, 1)
+                self.assertIn(error, output.getvalue())
+                fetch.assert_not_called()
+
+    def test_unquoted_batch_failures_remain_verbatim_and_in_order(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "items.txt"
+            invalid = "  Hunter Shoes 99  \n"
+            unknown = "  Unknown Ability \n"
+            path.write_text(
+                invalid + "Vendetta's Wrath 8\nHeroic Cleave\n" + unknown,
+                encoding="utf-8",
+            )
+            with patch.object(download, "download_one") as fetch, contextlib.redirect_stdout(io.StringIO()):
+                status = download.main([str(path)])
+
+            self.assertEqual(status, 1)
+            self.assertEqual(path.read_text(encoding="utf-8"), invalid + unknown)
+            self.assertEqual(fetch.call_count, 2)
+
+    def test_interactive_mode_keeps_reading_after_bad_input_and_network_failure(self):
+        lines = '"unterminated\nHunter Shoes 99\nUnknown Ability\nHeroic Cleave\nHunter Shoes 8 1 4\nexit\n'
+        output = io.StringIO()
+        with patch.object(download.sys, "stdin", io.StringIO(lines)), patch.object(
+            download, "download_one", side_effect=[urllib.error.URLError("offline"), None]
+        ) as fetch, contextlib.redirect_stdout(output):
+            status = download.main([])
+
+        self.assertEqual(status, 1)
+        self.assertEqual(fetch.call_count, 2)
+        self.assertEqual(output.getvalue().count("[FAIL]"), 4)
+        self.assertEqual(output.getvalue().count("[OK]"), 1)
+        self.assertNotIn("download>", output.getvalue())
+        self.assertNotIn("Traceback", output.getvalue())
+
+    def test_interactive_mode_keeps_reading_after_file_write_failure(self):
+        output = io.StringIO()
+        with patch.object(download.sys, "stdin", io.StringIO("Heroic Cleave\nRefreshing Sprint\n")), patch.object(
+            download, "download_one", side_effect=[PermissionError("read-only directory"), None]
+        ) as fetch, contextlib.redirect_stdout(output):
+            status = download.main([])
+
+        self.assertEqual(status, 1)
+        self.assertEqual(fetch.call_count, 2)
+        self.assertIn("[FAIL] read-only directory", output.getvalue())
+        self.assertIn("[OK]", output.getvalue())
+
+    def test_interactive_mode_is_silent_until_a_request_is_entered(self):
+        for lines in ("", "exit\n", "quit\n", "\n # ignored\n\nexit\n"):
+            with self.subTest(lines=lines), patch.object(download.sys, "stdin", io.StringIO(lines)):
+                output = io.StringIO()
+                with patch.object(download, "download_one") as fetch, contextlib.redirect_stdout(output):
+                    status = download.main([])
+
+                self.assertEqual(status, 0)
+                self.assertEqual(output.getvalue(), "")
+                fetch.assert_not_called()
+
+    def test_interactive_interrupt_exits_without_a_traceback(self):
+        for target in ("builtins.input", "download.download_one"):
+            with self.subTest(target=target), patch.object(download.sys, "stdin", io.StringIO("Heroic Cleave\n")):
+                output = io.StringIO()
+                with patch(target, side_effect=KeyboardInterrupt), contextlib.redirect_stdout(output):
+                    status = download.main([])
+
+                self.assertEqual(status, 130)
+                self.assertEqual(output.getvalue(), "\n")
+
+    def test_help_does_not_enter_interactive_mode_or_load_the_catalog(self):
+        for flag in ("-h", "--help"):
+            output = io.StringIO()
+            with self.subTest(flag=flag), patch.object(download, "load_item_catalog") as load:
+                with patch("builtins.input") as read, contextlib.redirect_stdout(output):
+                    status = download.main([flag])
+
+                self.assertEqual(status, 0)
+                self.assertIn("Usage:", output.getvalue())
+                load.assert_not_called()
+                read.assert_not_called()
+
     def test_direct_script_propagates_failure_exit_status(self):
         result = subprocess.run(
             [download.__file__, "Guardian Armor", "99"],

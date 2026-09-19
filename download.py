@@ -3,7 +3,8 @@
 Albion Online item and spell icon downloader.
 
 Examples:
-    download "Guardian Armor" 6 1 4
+    download
+    download Hunter Shoes 8 1 4
     download downloads.txt
 """
 
@@ -41,20 +42,25 @@ QUALITY_WORD = {
 }
 
 USAGE = """Usage:
-  download "Spell Name"
-  download "Item Name" <tier> [enchant] [quality]
+  download
+  download Spell Name
+  download Item Name <tier> [enchant] [quality]
   download <file.txt>
+  download --help
 
 Examples:
-  download "Refreshing Sprint"
-  download "Guardian Armor" 6 1 4
-  download "Guardian Armor" 6
+  download Refreshing Sprint
+  download Hunter Shoes 8 1 4
+  download Guardian Armor 6
   download downloads.txt
 
 Notes:
+  download with no arguments reads one request per line, with no visible prompt
+  exit, quit, Ctrl+D, or Ctrl+C leaves interactive mode
+  names containing spaces do not need quotes
+  interactive and file lines use: Name [tier [enchant [quality]]]
   spell names are resolved to IDs using the embedded English spell catalog
   known spell IDs are also accepted; ambiguous names list the matching IDs
-  file lines use the same arguments as the command: "Name" [tier [enchant [quality]]]
   a name without item values is treated as a spell unless it is a known tierless item
   enchant defaults to 0
   quality defaults to 1
@@ -64,6 +70,7 @@ Notes:
 """
 
 _NAME_SPACE_RX = re.compile(r"\s+")
+_INTEGER_RX = re.compile(r"[+-]?[0-9]+")
 _TIER_PREFIX_RX = re.compile(r"^T([1-8])_")
 _ENCHANT_SUFFIX_RX = re.compile(r"@([1-4])$")
 
@@ -221,6 +228,8 @@ def get_identifier_enchantment(identifier: str) -> int:
 
 
 def parse_int(value: str, field_name: str) -> int:
+    if not _INTEGER_RX.fullmatch(value):
+        raise ValueError(f"Invalid {field_name}: {value!r}.")
     try:
         return int(value)
     except ValueError as exc:
@@ -240,15 +249,35 @@ def validate_item_values(name: str, tier: int, enchant: int, quality: int) -> No
         raise ValueError(f"Invalid quality for '{name}': {quality}. Quality must be between 1 and 5.")
 
 
-def validate_file_values(name: str, tier: int, enchant: int, quality: int) -> None:
-    if not name.strip():
+def split_request_line(line: str) -> List[str]:
+    line = line.strip()
+    # Keep older quoted files working without treating literal apostrophes as quotes.
+    if line.startswith(('"', "'")):
+        return shlex.split(line, comments=False, posix=True)
+    return line.split()
+
+
+def parse_request(args: Sequence[str]) -> Tuple[str, int, int, int]:
+    value_index = len(args)
+    for index, value in enumerate(args):
+        if _INTEGER_RX.fullmatch(value):
+            value_index = index
+            break
+
+    name = " ".join(args[:value_index]).strip()
+    if not name:
         raise ValueError("Name cannot be empty.")
-    if tier != -1 and not (1 <= tier <= 8):
-        raise ValueError(f"Invalid tier {tier} for '{name}' (must be 1-8).")
-    if not (0 <= enchant <= 4):
-        raise ValueError(f"Invalid enchantment {enchant} for '{name}' (must be 0-4).")
-    if not (1 <= quality <= 5):
-        raise ValueError(f"Invalid quality {quality} for '{name}' (must be 1-5).")
+    values = args[value_index:]
+    if len(values) > 3:
+        raise ValueError("Expected: Name [tier [enchantment [quality]]].")
+    if not values:
+        return name, -1, 0, 1
+
+    tier = parse_int(values[0], "tier")
+    enchant = parse_int(values[1], "enchantment") if len(values) >= 2 else 0
+    quality = parse_int(values[2], "quality") if len(values) >= 3 else 1
+    validate_item_values(name, tier, enchant, quality)
+    return name, tier, enchant, quality
 
 
 def build_identifier(base_ident: str, tier: int, enchant: int) -> Tuple[str, int]:
@@ -349,25 +378,8 @@ def parse_requests_file(path: str) -> Tuple[List[BatchRequest], List[Tuple[int, 
             if not stripped_line or stripped_line.startswith("#"):
                 continue
 
-            tier = -1
-            enchant = 0
-            quality = 1
-
             try:
-                args = shlex.split(stripped_line, comments=False, posix=True)
-                if not (1 <= len(args) <= 4):
-                    raise ValueError(
-                        "Expected: \"Name\" [tier [enchantment [quality]]]."
-                    )
-
-                name = args[0]
-                if len(args) >= 2:
-                    tier = parse_int(args[1], "tier")
-                if len(args) >= 3:
-                    enchant = parse_int(args[2], "enchantment")
-                if len(args) >= 4:
-                    quality = parse_int(args[3], "quality")
-                validate_file_values(name, tier, enchant, quality)
+                name, tier, enchant, quality = parse_request(split_request_line(stripped_line))
             except ValueError as exc:
                 print(f"[FAIL] Line {line_number}: {exc} Leaving line in file.")
                 rejected_lines.append((line_number, original_line))
@@ -556,12 +568,13 @@ def run_batch_download(catalog: Mapping[str, ItemEntry], input_path: str, output
 def run_single_download(
     catalog: Mapping[str, ItemEntry], args: Sequence[str], output_dir: str
 ) -> int:
-    if len(args) == 1:
-        name = args[0].strip()
-        if not name:
-            print("[FAIL] Spell name cannot be empty.")
-            return 1
+    try:
+        name, tier, enchant, quality = parse_request(args)
+    except ValueError as exc:
+        print(f"[FAIL] {exc}")
+        return 1
 
+    if tier == -1:
         if is_tierless_catalog_item(catalog, name):
             try:
                 output_path = download_catalog_item_to_directory(
@@ -586,20 +599,14 @@ def run_single_download(
         except (urllib.error.HTTPError, urllib.error.URLError, TimeoutError) as exc:
             print(f"[FAIL] Download failed for spell '{name}': {format_download_error(exc)}.")
             return 1
+        except Exception as exc:
+            print(f"[FAIL] {exc}")
+            return 1
 
         print(f"[OK] Downloaded spell '{name}' to {output_path}")
         return 0
 
-    if len(args) < 2 or len(args) > 4:
-        print("[FAIL] Item mode requires: name, tier, optional enchant, optional quality.")
-        print_usage()
-        return 1
-
-    name = args[0]
     try:
-        tier = parse_int(args[1], "tier")
-        enchant = parse_int(args[2], "enchantment") if len(args) >= 3 else 0
-        quality = parse_int(args[3], "quality") if len(args) >= 4 else 1
         output_path = download_item_to_directory(catalog, name, tier, enchant, quality, output_dir)
     except (urllib.error.HTTPError, urllib.error.URLError, TimeoutError) as exc:
         print(f"[FAIL] Download failed for '{name}': {format_download_error(exc)}.")
@@ -612,9 +619,34 @@ def run_single_download(
     return 0
 
 
+def run_interactive(catalog: Mapping[str, ItemEntry], output_dir: str) -> int:
+    status = 0
+    try:
+        while True:
+            try:
+                line = input().strip()
+            except EOFError:
+                return status
+            if line.casefold() in ("exit", "quit"):
+                return status
+            if not line or line.startswith("#"):
+                continue
+            try:
+                args = split_request_line(line)
+            except ValueError as exc:
+                print(f"[FAIL] {exc}")
+                status = 1
+                continue
+            if run_single_download(catalog, args, output_dir):
+                status = 1
+    except KeyboardInterrupt:
+        print()
+        return 130
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     args = list(sys.argv[1:] if argv is None else argv)
-    if not args:
+    if args in (["-h"], ["--help"]):
         print_usage()
         return 0
 
@@ -629,6 +661,9 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     output_dir = os.getcwd()
     os.makedirs(output_dir, exist_ok=True)
+
+    if not args:
+        return run_interactive(catalog, output_dir)
 
     if len(args) == 1 and os.path.isfile(args[0]):
         return run_batch_download(catalog, args[0], output_dir)
