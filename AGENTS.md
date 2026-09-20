@@ -10,6 +10,8 @@ A Python standard-library command-line tool for downloading Albion Online item a
 - `CATALOGUE.md` documents catalogue scope, format and source provenance.
 - `scripts/update_spells.py` updates only curated spell mappings from a specified local game-data dump.
 - `test_download.py` tests the downloader, catalogue and spell updater.
+- `install.sh` and `install.ps1` install or update the platform's three runtime files from one `main` archive, validate them before replacement, and configure the user's PATH. Keep the manual-install summary in each script and the README installation section brief.
+- `test_installers.py` checks installation, updates, PATH handling and failure recovery using temporary directories and local archives. Never use the user's real installation, shell profiles or registry for these tests.
 
 ## Catalogue authority
 
@@ -51,7 +53,9 @@ py -3 -B -m unittest -v
 
 Use `sys.executable` for direct Python subprocesses, portable temporary paths and platform-appropriate permission assertions. Retain Unix launcher checks. Windows launcher, PowerShell PATH discovery, console input and interrupt checks require actual Windows; report the OS, PowerShell and Python versions tested and any unavailable checks.
 
-Verification on 20 September 2026: macOS 26.6.2 with Python 3.14.4 and 3.9.6 each passed 49 tests with 3 Windows-only tests skipped. A temporary installation passed 19 live PNG downloads, output replacement, BOM/CRLF batch processing and interactive terminal checks. Native Windows testing remains pending, including launcher arguments and exit status, PowerShell installation/PATH discovery, Ctrl+C and Ctrl+Z, Windows-created batch files and read-only replacement failures. Linux and a Python 3.8 runtime were not tested in that run.
+PowerShell installer tests run when `pwsh` or `powershell` is available; `DOWNLOAD_TEST_POWERSHELL` can specify a portable executable. These tests use the real PowerShell and filesystem code with the network, `py` launcher and persistent user PATH isolated. They do not replace native Windows verification.
+
+Verification on 20 September 2026: macOS 26.6.2 with Python 3.14.4 and 3.9.6 each ran 67 tests: 64 passed and 3 Windows-only tests were skipped. The installer tests included PowerShell 7.6.6 running on macOS. A temporary installation fetched the live repository archive and passed 6 live PNG downloads across command, interactive and BOM/CRLF batch modes, including output replacement and paths with spaces and brackets. Earlier runtime verification that day also passed interactive terminal checks. Native Windows testing remains pending, including Windows PowerShell 5.1, launcher arguments and exit status, installation/PATH discovery, Ctrl+C and Ctrl+Z, Windows-created batch files and read-only replacement failures. Linux and a Python 3.8 runtime were not tested in that run.
 
 Check spell mappings against a local dump without writing:
 

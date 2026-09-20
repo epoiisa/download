@@ -6,65 +6,29 @@ Data source: [ao-data/ao-bin-dumps](https://github.com/ao-data/ao-bin-dumps).
 
 ## Install or update
 
-Requires Python 3.8+ and no third-party packages.
+Requires [Python 3.8+](https://www.python.org/downloads/) (`python3` on macOS/Linux, `py -3` on Windows). No third-party packages or administrator access are needed. Run the command for your platform from any directory; run it again to update.
 
 ### macOS and Linux
 
-From this repository's directory, run:
-
 ```bash
-mkdir -p ~/.local/bin
-cp download download.py catalogue.json ~/.local/bin/
-chmod +x ~/.local/bin/download
-export PATH="$HOME/.local/bin:$PATH"
+curl -fsSL https://raw.githubusercontent.com/epoiisa/download/main/install.sh | sh
 ```
 
-Keep all three files together and copy all three when updating. To keep the command available in new terminals, add the `export PATH` line to your shell's startup file once (`~/.zshrc` for zsh).
-
-To run without installing, use `python3 ./download.py` in place of `download` from this directory.
+[View install.sh](install.sh)
 
 ### Windows PowerShell
 
-Check that Python 3.8 or newer is available:
-
 ```powershell
-py -3 --version
+irm https://raw.githubusercontent.com/epoiisa/download/main/install.ps1 | iex
 ```
 
-If this command is unavailable or reports an older version, install Python using the [official Windows installation instructions](https://docs.python.org/3/using/windows.html), then reopen PowerShell and check again. The Windows launcher uses `py -3`, supported by both the Python install manager and the older Python launcher.
+[View install.ps1](install.ps1)
 
-From this repository's directory, copy the three Windows runtime files:
+Reopen your terminal application, then check:
 
-```powershell
-$downloadDir = Join-Path $env:LOCALAPPDATA 'Programs\download'
-New-Item -ItemType Directory -Path $downloadDir -Force | Out-Null
-Copy-Item -LiteralPath .\download.cmd, .\download.py, .\catalogue.json -Destination $downloadDir -Force
-```
-
-Keep these three files together and repeat the copy when updating. Once, add the directory to your [user PATH](https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.core/about/about_environment_variables#use-the-systemenvironment-methods), preserving its existing entries:
-
-```powershell
-$downloadUserPath = [Environment]::GetEnvironmentVariable('Path', 'User')
-if (($downloadUserPath -split ';') -notcontains $downloadDir) {
-    if ([string]::IsNullOrEmpty($downloadUserPath)) {
-        $downloadUserPath = $downloadDir
-    } else {
-        $downloadUserPath = "$downloadUserPath;$downloadDir"
-    }
-    [Environment]::SetEnvironmentVariable('Path', $downloadUserPath, 'User')
-}
-```
-
-Close and reopen your terminal application, then check:
-
-```powershell
-Get-Command download
+```text
 download --help
 ```
-
-`Get-Command` should show `download.cmd` in the installation directory. Administrator access and PowerShell execution-policy changes are unnecessary.
-
-To run without installing, use `py -3 .\download.py` or `.\download.cmd` in place of `download` from this directory.
 
 ## Usage
 
