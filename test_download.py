@@ -451,7 +451,11 @@ class DownloadTests(unittest.TestCase):
             ("Rending Rage", "RENDINGCOMBO"),
             ("Rending Rage (second cast)", "RENDINGCOMBO_MULTI2"),
             ("Rending Rage (Second cast)", "RENDINGCOMBO_MULTI2"),
-            ("Rending Rage (third cast)", "RENDINGCOMBO_MULTI3"),
+            ("Rending Rage (Raging Leap)", "RENDINGCOMBO_MULTI3"),
+            ("After Image (Return to Image)", "AFTER_IMAGE_RETURN"),
+            ("Eye of the Storm (Dreadstorm Surge)", "MACE_CRYSTAL_FRAGMENT_STORM_MULTI2"),
+            ("Purifying Combination (Purifying Fist)", "TRIPLECOMBO_POWERPUNCH"),
+            ("Wild Onslaught (Roar)", "BEAR_ROAR"),
         ):
             with self.subTest(name=name), patch.object(download, "download_one") as fetch:
                 with contextlib.redirect_stdout(io.StringIO()):
@@ -477,8 +481,11 @@ class DownloadTests(unittest.TestCase):
             ("hush", "2", "PASSIVE_SILENCECHANCE", "hush (passive)"),
             ("Rending Rage", "1", "RENDINGCOMBO", "Rending Rage"),
             ("Rending Rage", "2", "RENDINGCOMBO_MULTI2", "Rending Rage (second cast)"),
-            ("RENDING   RAGE", "3", "RENDINGCOMBO_MULTI3", "RENDING RAGE (third cast)"),
-            ("After Image", "2", "AFTER_IMAGE_RETURN", "After Image (return)"),
+            ("RENDING   RAGE", "3", "RENDINGCOMBO_MULTI3", "RENDING RAGE (Raging Leap)"),
+            ("After Image", "2", "AFTER_IMAGE_RETURN", "After Image (Return to Image)"),
+            ("Eye of the Storm", "2", "MACE_CRYSTAL_FRAGMENT_STORM_MULTI2", "Eye of the Storm (Dreadstorm Surge)"),
+            ("Purifying Combination", "2", "TRIPLECOMBO_POWERPUNCH", "Purifying Combination (Purifying Fist)"),
+            ("Wild Onslaught", "2", "BEAR_ROAR", "Wild Onslaught (Roar)"),
             ("Enchanted Quiver", "2", "SPEEDARCHER_KITE_MULTI_DASH", "Enchanted Quiver (dash)"),
         )
         for mode in ("command", "interactive"):
@@ -502,10 +509,11 @@ class DownloadTests(unittest.TestCase):
                         self.assertIn("  1. Hush\n  2. Hush (passive)\n", output.getvalue())
                     elif name == "Rending Rage":
                         self.assertIn("  1. Rending Rage\n  2. Rending Rage (second cast)\n"
-                                      "  3. Rending Rage (third cast)\n", output.getvalue())
+                                      "  3. Rending Rage (Raging Leap)\n", output.getvalue())
 
     def test_terminal_explicit_labels_ids_and_unambiguous_names_skip_selection(self):
-        for name in ("Hush (passive)", "Rending Rage (second cast)", "Heroic Cleave",
+        for name in ("Hush (passive)", "Rending Rage (second cast)", "Rending Rage (raging leap)",
+                     "After Image (return to image)", "Heroic Cleave",
                      "WEAPON_SILENCE", "PASSIVE_SILENCECHANCE", "rendingcombo_multi3", "RUSH"):
             with self.subTest(name=name), patch.object(download.sys, "stdin", TerminalBuffer()):
                 output = TerminalBuffer()
@@ -782,10 +790,10 @@ class CatalogueTests(unittest.TestCase):
         catalog = download.load_item_catalog()
         cases = (
             ("Bow 2", "T2_2H_BOW", "Bow 2.png"),
-            ("Dungeon Map (solo) 3 1", "T3_RANDOM_DUNGEON_SOLO_TOKEN_D1@1", "Dungeon Map (solo) 3.1.png"),
-            ("Dungeon Map (group) 8 4", "T8_RANDOM_DUNGEON_TOKEN_D4@4", "Dungeon Map (group) 8.4.png"),
-            ("Waystone (large group) 6", "T6_RANDOM_DUNGEON_ELITE_DRAGON_TOKEN_D1@1", "Waystone (large group) 6.1.png"),
-            ("Waystone (large group) 8 4", "T8_RANDOM_DUNGEON_ELITE_DRAGON_TOKEN_D4@4", "Waystone (large group) 8.4.png"),
+            ("Dungeon Map (Solo) 3 1", "T3_RANDOM_DUNGEON_SOLO_TOKEN_D1@1", "Dungeon Map (Solo) 3.1.png"),
+            ("Dungeon Map (Group) 8 4", "T8_RANDOM_DUNGEON_TOKEN_D4@4", "Dungeon Map (Group) 8.4.png"),
+            ("Waystone (Large Group) 6", "T6_RANDOM_DUNGEON_ELITE_DRAGON_TOKEN_D1@1", "Waystone (Large Group) 6.1.png"),
+            ("Waystone (Large Group) 8 4", "T8_RANDOM_DUNGEON_ELITE_DRAGON_TOKEN_D4@4", "Waystone (Large Group) 8.4.png"),
             ("Swiftclaw", "T5_MOUNT_COUGAR_KEEPER@1", "Swiftclaw 5.1.png"),
             ("Beef Stew", "T8_MEAL_STEW", "Beef Stew.png"),
             ("Black Panther 8", "UNIQUE_MOUNT_BLACK_PANTHER_ADC", "Black Panther.png"),
@@ -826,7 +834,7 @@ class CatalogueTests(unittest.TestCase):
         lines = [
             "Hunter Shoes 3", "Broadsword 3 1", "Beef Stew 8 0 2",
             "Lumberjack's Journal 1", "Lumberjack's Journal 8 1",
-            "Swiftclaw 5 0", "Dungeon Map (solo) 3 2", "Waystone (large group) 6 0",
+            "Swiftclaw 5 0", "Dungeon Map (Solo) 3 2", "Waystone (Large Group) 6 0",
             "Siphoned Energy 8", "Siphoned Energy 1 0 2", "Hunter Shoes",
         ]
         for mode in ("command", "interactive", "file"):
@@ -1005,18 +1013,23 @@ class SpellCatalogGenerationTests(unittest.TestCase):
                              {"Heroic Cleave": "CLEAVE"})
 
     def test_list_expansion_preserves_separate_passives_and_grouped_casts(self):
-        self.assertEqual(curated_spell_names("Rending Rage (second cast, third cast)\n\nHush (passive)\nRending Rage\n"),
-                         ["Rending Rage", "Rending Rage (second cast)", "Rending Rage (third cast)", "Hush (passive)"])
+        self.assertEqual(curated_spell_names("Rending Rage (second cast, Raging Leap)\n\nHush (passive)\nRending Rage\n"),
+                         ["Rending Rage", "Rending Rage (second cast)", "Rending Rage (Raging Leap)", "Hush (passive)"])
         for label in ("passive", "Passive"):
             self.assertEqual(curated_spell_names(f"Hush ({label})\n"), [f"Hush ({label})"])
 
     def test_generation_keeps_reviewed_ids_and_only_includes_listed_names(self):
         spells = {"FIRST": ("Example", {"@uisprite": "icon"}),
                   "SECOND": ("Example", {"@uisprite": "recast"}),
+                  "THIRD": ("Example", {"@uisprite": "finish"}),
                   "REMOVED": ("Removed", {"@uisprite": "other"})}
-        previous = {"Example": "FIRST", "Example (return)": "SECOND", "Removed": "REMOVED"}
-        self.assertEqual(select_spells(["Example", "Example (return)"], previous, spells, {"FIRST", "REMOVED"}),
-                         {"Example": "FIRST", "Example (return)": "SECOND"})
+        previous = {"Example": "FIRST", "Example (second cast)": "SECOND",
+                    "Example (Named Finish)": "THIRD", "Removed": "REMOVED"}
+        names = curated_spell_names("Example (second cast, Named Finish)\n")
+        result = select_spells(names, previous, spells, {"FIRST", "REMOVED"})
+        self.assertEqual(result, {"Example": "FIRST", "Example (second cast)": "SECOND",
+                                  "Example (Named Finish)": "THIRD"})
+        self.assertEqual(list(result), names)
 
     def test_generation_requires_review_for_changed_or_ambiguous_icons(self):
         spells = {"ACTIVE": ("Hush", {"@uisprite": "active"}),

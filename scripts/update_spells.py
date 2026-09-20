@@ -135,7 +135,14 @@ def select_spells(names, previous, spells, equipped):
             choices = ", ".join(sorted(primary or candidates)) or "none"
             raise ValueError(f"Review '{name}': expected one icon; candidate IDs: {choices}.")
         selected[name] = min(next(iter(icons.values())), key=lambda identifier: (len(identifier), identifier))
-    return dict(sorted(selected.items()))
+
+    def family_order(entry):
+        name = entry[0]
+        base = re.sub(r" \([^()]+\)$", "", name)
+        return base, name != base
+
+    # Sort families and put base icons first; keep casts in curated list order.
+    return dict(sorted(selected.items(), key=family_order))
 
 
 def generate_catalog(directory, names, previous):

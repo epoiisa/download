@@ -61,7 +61,7 @@ download Rending Rage
 Choose an icon for 'Rending Rage':
   1. Rending Rage
   2. Rending Rage (second cast)
-  3. Rending Rage (third cast)
+  3. Rending Rage (Raging Leap)
 Select 1-3 (Enter to cancel): 2
 ```
 

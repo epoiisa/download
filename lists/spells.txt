@@ -24,7 +24,7 @@ Limitbreaker
 
 Rending Strike
 Rending Spin
-Rending Rage (second cast, third cast)
+Rending Rage (second cast, Raging Leap)
 
 Deadly Chop
 Adrenaline Boost
@@ -68,7 +68,7 @@ Force of Nature
 Shrinking Curse
 Vendetta
 Blessed Aurora
-Eye of the Storm (aura)
+Eye of the Storm (Dreadstorm Surge)
 
 Powerful Swing
 Threatening Strike
@@ -116,7 +116,7 @@ Gravitational Collapse
 Hundred Striking Fists
 Infernal Boulder
 Earth Crusher
-Purifying Combination (second cast)
+Purifying Combination (Purifying Fist)
 Unstoppable Rush
 
 Auto Fire
@@ -257,7 +257,7 @@ Tether Shift
 Polymorph
 Pounce
 Barbed Roots
-Wild Onslaught (roar)
+Wild Onslaught (Roar)
 Rip Through
 Hellfire Barrage
 Tectonic Shift
@@ -503,7 +503,7 @@ Evasive Jump
 Raging Blink
 Mark of Sacrifice
 Spectral Run
-After Image (return)
+After Image (Return to Image)
 Blind Spot
 Burning Momentum
 

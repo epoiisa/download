@@ -30,10 +30,10 @@ URL: `https://render.albiononline.com/v1/item/{identifier}.png?quality={quality}
 
 ## Spells and aliases
 
-`spells` maps English names directly to spell identifiers. Parenthetical labels distinguish different icons with the same name. Parenthetical labels use lowercase for both items and spells. Grouped casts in the lists become separate entries for the main icon and each listed cast variant. Spells have no tier, enchantment or quality options.
+`spells` maps English names directly to spell identifiers. Parenthetical labels use proper stage names from English tooltips and official item qualifiers where available, preserving their capitalisation. The descriptive labels `second cast`, `dash`, `dive`, `teleport` and `passive` remain lowercase because the game supplies no distinct names for those variants. Grouped casts in the lists become separate entries for the main icon and each listed cast variant. Spell families are ordered alphabetically, with the base icon first and variants in curated list order. Spells have no tier, enchantment or quality options.
 
 URL: `https://render.albiononline.com/v1/spell/{identifier}.png`
 
 `aliases` maps alternative item names to canonical item keys. For lookup, ignore case and repeated whitespace; URL-encode identifiers.
 
-Source: [ao-data/ao-bin-dumps, 8 September 2026](https://github.com/ao-data/ao-bin-dumps/tree/0be6a5e74f30fc1312118be3d017f3832f027cef). All 7,776 item tier/enchantment identifiers and 475 spell mappings checked against this source on 20 September 2026.
+Source: [ao-data/ao-bin-dumps, 8 September 2026](https://github.com/ao-data/ao-bin-dumps/tree/0be6a5e74f30fc1312118be3d017f3832f027cef). All 7,776 item tier/enchantment identifiers and 475 spell mappings checked against this source on 20 September 2026. Parenthetical names were also reviewed against its English tooltips and item names on that date.

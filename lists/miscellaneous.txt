@@ -51,10 +51,10 @@ Gamekeeper's Journal
 Siege Hammer
 Avalonian Siege Hammer
 
-Dungeon Map (group)
-Dungeon Map (large group)
-Dungeon Map (solo)
-Waystone (large group)
+Dungeon Map (Group)
+Dungeon Map (Large Group)
+Dungeon Map (Solo)
+Waystone (Large Group)
 Waystone Fragment
 
 Siphoned Energy
