@@ -1,0 +1,131 @@
+Carrot Soup
+Wheat Soup
+Cabbage Soup
+Greenmoor Clam Soup
+Murkwater Clam Soup
+Blackbog Clam Soup
+
+Bean Salad
+Turnip Salad
+Potato Salad
+Shallowshore Squid Salad
+Midwater Octopus Salad
+Deepwater Kraken Salad
+
+Chicken Pie
+Goose Pie
+Pork Pie
+Upland Coldeye Pie
+Mountain Blindeye Pie
+Frostpeak Deadeye Pie
+
+Chicken Omelette
+Goose Omelette
+Pork Omelette
+Lowriver Crab Omelette
+Drybrook Crab Omelette
+Dusthole Crab Omelette
+Avalonian Chicken Omelette
+Avalonian Goose Omelette
+Avalonian Pork Omelette
+Carefree Leyfin Omelette
+Brightsoul Leyfin Omelette
+Dragonbound Leyfin Omelette
+
+Goat Stew
+Mutton Stew
+Beef Stew
+Greenriver Eel Stew
+Redspring Eel Stew
+Deadwater Eel Stew
+Avalonian Goat Stew
+Avalonian Mutton Stew
+Avalonian Beef Stew
+
+Goat Sandwich
+Mutton Sandwich
+Beef Sandwich
+Stonestream Lurcher Sandwich
+Rushwater Lurcher Sandwich
+Thunderfall Lurcher Sandwich
+Avalonian Goat Sandwich
+Avalonian Mutton Sandwich
+Avalonian Beef Sandwich
+
+Roast Chicken
+Roast Goose
+Roast Pork
+Roasted Whitefog Snapper
+Roasted Clearhaze Snapper
+Roasted Puremist Snapper
+
+Chocolate
+Drake Egg Biscuits
+Grilled Fish
+Seaweed Salad
+
+Acid Potion
+Berserk Potion
+Calming Potion
+Cleansing Potion
+Energy Potion
+Gathering Potion
+Gigantify Potion
+Healing Potion
+Hellfire Potion
+Invisibility Potion
+Lifeward Potion
+Poison Potion
+Resistance Potion
+Sticky Potion
+Tornado in a Bottle
+
+Common Rudd
+Striped Carp
+Albion Perch
+Bluescale Pike
+Spotted Trout
+Brightscale Zander
+Danglemouth Catfish
+River Sturgeon
+
+Common Herring
+Striped Mackerel
+Flatshore Plaice
+Bluescale Cod
+Spotted Wolffish
+Strongfin Salmon
+Bluefin Tuna
+Steelscale Swordfish
+
+Greenriver Eel
+Redspring Eel
+Deadwater Eel
+
+Upland Coldeye
+Mountain Blindeye
+Frostpeak Deadeye
+
+Lowriver Crab
+Drybrook Crab
+Dusthole Crab
+
+Greenmoor Clam
+Murkwater Clam
+Blackbog Clam
+
+Stonestream Lurcher
+Rushwater Lurcher
+Thunderfall Lurcher
+
+Shallowshore Squid
+Midwater Octopus
+Deepwater Kraken
+
+Whitefog Snapper
+Clearhaze Snapper
+Puremist Snapper
+
+Carefree Leyfin
+Brightsoul Leyfin
+Dragonbound Leyfin

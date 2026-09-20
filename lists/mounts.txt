@@ -1,0 +1,91 @@
+Armored Horse
+Direwolf
+Giant Stag
+Moose
+Mule
+Riding Horse
+Saddled Bighorn Ram
+Saddled Direbear
+Saddled Direboar
+Saddled Greywolf
+Saddled Moabird
+Saddled Swamp Dragon
+Saddled Swamp Salamander
+Saddled Wild Boar
+Saddled Winter Bear
+Swiftclaw
+Transport Mammoth
+Transport Ox
+Warhorse
+
+Avalonian Basilisk
+Black Panther
+Caerleon Cottontail
+Divine Owl
+Elite Bighorn Ram
+Elite Greywolf
+Elite Mystic Owl
+Elite Swamp Salamander
+Elite Terrorbird
+Elite Wild Boar
+Elite Winter Bear
+Firewing Drake
+Frost Ram
+Gallant Horse
+Grizzly Bear
+Hellspinner
+Heretic Combat Mule
+Morgana Nightmare
+Morgana Raven
+Pest Lizard
+Rageclaw
+Recruiter's Giant Frog
+Recruiter's Moabird
+Recruiter's Ram
+Recruiter's Saddled Bat
+Recruiter's Toad
+Saddled Mystic Owl
+Saddled Terrorbird
+Snow Husky
+Soulspinner
+Spectral Bat
+Spectral Bonehorse
+Spectral Direboar
+Spring Cottontail
+Yule Ram
+
+Bronze Battle Rhino
+Command Mammoth
+Crystal Ancient Ent
+Crystal Battle Eagle
+Crystal Battle Rhino
+Crystal Behemoth
+Crystal Colossus Beetle
+Crystal Goliath Horseeater
+Crystal Juggernaut
+Crystal Phalanx Beetle
+Crystal Roving Bastion
+Crystal Tower Chariot
+Flame Basilisk
+Gold Ancient Ent
+Gold Battle Eagle
+Gold Battle Rhino
+Gold Behemoth
+Gold Colossus Beetle
+Gold Goliath Horseeater
+Gold Juggernaut
+Gold Phalanx Beetle
+Gold Roving Bastion
+Gold Tower Chariot
+Siege Ballista
+Silver Ancient Ent
+Silver Battle Eagle
+Silver Battle Rhino
+Silver Behemoth
+Silver Colossus Beetle
+Silver Goliath Horseeater
+Silver Juggernaut
+Silver Phalanx Beetle
+Silver Roving Bastion
+Silver Tower Chariot
+Venom Basilisk

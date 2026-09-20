@@ -1,9 +1,12 @@
+import codecs
 import contextlib
-import csv
 import io
+import json
 import os
+import shutil
 import stat
 import subprocess
+import sys
 import tempfile
 import threading
 import unittest
@@ -13,7 +16,9 @@ from pathlib import Path
 from unittest.mock import patch
 
 import download
-from scripts.update_spells import equipment_spell_ids, include_recast_spells
+from scripts.update_spells import (
+    curated_spell_names, equipment_spell_ids, generate_catalog, include_recast_spells, select_spells,
+)
 
 
 class FakeResponse:
@@ -28,6 +33,11 @@ class FakeResponse:
 
 
 class DownloadTests(unittest.TestCase):
+    def setUp(self):
+        directory = tempfile.TemporaryDirectory(prefix="download test ")
+        self.addCleanup(directory.cleanup)
+        self.output_dir = directory.name
+
     def test_unquoted_item_writes_requested_filename_in_all_modes(self):
         line = "Hunter Shoes 8 1 4"
         for mode in ("command", "interactive", "file"):
@@ -69,12 +79,12 @@ class DownloadTests(unittest.TestCase):
         ):
             with self.subTest(line=line), patch.object(download, "download_one") as fetch:
                 with contextlib.redirect_stdout(io.StringIO()):
-                    status = download.run_single_download(catalog, line.split(), "/tmp")
+                    status = download.run_single_download(catalog, line.split(), self.output_dir)
 
                 self.assertEqual(status, 0)
                 fetch.assert_called_once_with(
                     "https://render.albiononline.com/v1/" + endpoint + ".png",
-                    "/tmp/" + filename + ".png",
+                    os.path.join(self.output_dir, filename + ".png"),
                 )
 
     def test_invalid_unquoted_item_values_do_not_download(self):
@@ -93,7 +103,7 @@ class DownloadTests(unittest.TestCase):
             with self.subTest(line=line), patch.object(download, "download_one") as fetch:
                 output = io.StringIO()
                 with contextlib.redirect_stdout(output):
-                    status = download.run_single_download(catalog, line.split(), "/tmp")
+                    status = download.run_single_download(catalog, line.split(), self.output_dir)
 
                 self.assertEqual(status, 1)
                 self.assertIn(error, output.getvalue())
@@ -177,13 +187,82 @@ class DownloadTests(unittest.TestCase):
 
     def test_direct_script_propagates_failure_exit_status(self):
         result = subprocess.run(
-            [download.__file__, "Guardian Armor", "99"],
+            [sys.executable, download.__file__, "Guardian Armor", "99"],
             text=True,
             capture_output=True,
+            timeout=15,
         )
 
         self.assertEqual(result.returncode, 1)
         self.assertIn("[FAIL] Invalid tier", result.stdout)
+
+    def test_redirected_output_handles_characters_outside_its_encoding(self):
+        for encoding in ("ascii", "cp1252"):
+            with self.subTest(encoding=encoding):
+                result = subprocess.run(
+                    [sys.executable, download.__file__, "Unknown \u6f22 ability"],
+                    env=dict(os.environ, PYTHONIOENCODING=encoding),
+                    capture_output=True, timeout=15,
+                )
+                self.assertEqual(result.returncode, 1)
+                self.assertIn(b"[FAIL]", result.stdout)
+                self.assertIn(b"\\u6f22", result.stdout)
+                self.assertEqual(result.stderr, b"")
+
+    def test_utf8_crlf_batch_with_optional_bom_replaces_outputs_and_keeps_failures(self):
+        successful = {
+            "Lumberjack's Journal 8": "Lumberjack's Journal 8.png",
+            "Hunter Shoes 8 1 4": "Hunter Shoes 8.1 Excellent.png",
+            "Rending Rage (Second cast)": "Rending Rage (Second cast).png",
+            "Siphoned Energy": "Siphoned Energy.png",
+        }
+        invalid = "  Hunter Shoes 99  "
+        unknown = "  Unknown \u6f22 Ability  "
+        lines = [next(iter(successful)), invalid, "# comment", ""]
+        lines += list(successful)[1:] + [unknown]
+        for bom in (b"", codecs.BOM_UTF8):
+            with self.subTest(bom=bom), tempfile.TemporaryDirectory() as directory:
+                path = Path(directory) / "batch file.txt"
+                path.write_bytes(bom + ("\r\n".join(lines) + "\r\n").encode("utf-8"))
+                for filename in successful.values():
+                    (Path(directory) / filename).write_bytes(b"old image")
+                with patch.object(download.os, "getcwd", return_value=directory), patch.object(
+                    download.urllib.request, "urlopen", return_value=FakeResponse()
+                ) as fetch, contextlib.redirect_stdout(io.StringIO()):
+                    status = download.main([str(path)])
+
+                self.assertEqual(status, 1)
+                self.assertEqual(fetch.call_count, len(successful))
+                self.assertEqual(path.read_bytes(), (invalid + "\n" + unknown + "\n").encode("utf-8"))
+                for filename in successful.values():
+                    self.assertEqual((Path(directory) / filename).read_bytes(), b"png")
+                self.assertEqual(sorted(p.name for p in Path(directory).iterdir()),
+                                 sorted([path.name] + list(successful.values())))
+
+    def test_redirected_success_preserves_unicode_output_path(self):
+        directory = Path(self.output_dir) / "icons \u6f22"
+        directory.mkdir()
+        buffer = io.BytesIO()
+        with io.TextIOWrapper(buffer, encoding="ascii") as output:
+            with patch.object(download.sys, "stdout", output), patch.object(
+                download.os, "getcwd", return_value=str(directory)
+            ), patch.object(download.urllib.request, "urlopen", return_value=FakeResponse()):
+                self.assertEqual(download.main(["Siphoned", "Energy"]), 0)
+            output.flush()
+            self.assertIn(b"[OK]", buffer.getvalue())
+            self.assertIn(b"\\u6f22", buffer.getvalue())
+        self.assertEqual((directory / "Siphoned Energy.png").read_bytes(), b"png")
+
+    def test_utf16_batch_is_reported_and_left_unchanged(self):
+        path = Path(self.output_dir) / "utf16.txt"
+        original = "Heroic Cleave\r\n".encode("utf-16")
+        path.write_bytes(original)
+        output = io.StringIO()
+        with patch.object(download, "download_one") as fetch, contextlib.redirect_stdout(output):
+            self.assertEqual(download.main([str(path)]), 1)
+        self.assertIn("Could not read batch file", output.getvalue())
+        self.assertEqual(path.read_bytes(), original)
+        fetch.assert_not_called()
 
     def test_batch_file_uses_command_line_argument_format(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -201,7 +280,7 @@ class DownloadTests(unittest.TestCase):
                 (request.name, request.tier, request.enchant, request.quality)
                 for request in requests
             ],
-            [("Refreshing Sprint", -1, 0, 1), ("Guardian Armor", 6, 1, 4)],
+            [("Refreshing Sprint", -1, None, 1), ("Guardian Armor", 6, 1, 4)],
         )
 
     def test_successful_batch_download_uses_parsed_arguments_and_empties_file(self):
@@ -281,7 +360,7 @@ class DownloadTests(unittest.TestCase):
         with patch.object(
             download, "download_one", side_effect=lambda url, path: calls.append((url, path))
         ), contextlib.redirect_stdout(io.StringIO()):
-            status = download.run_single_download(catalog, ["Siphoned Energy"], "/tmp")
+            status = download.run_single_download(catalog, ["Siphoned Energy"], self.output_dir)
 
         self.assertEqual(status, 0)
         self.assertEqual(
@@ -293,12 +372,12 @@ class DownloadTests(unittest.TestCase):
         for name in ("Heroic Cleave", "heroic cleave", "  HEROIC   CLEAVE  "):
             with self.subTest(name=name), patch.object(download, "download_one") as fetch:
                 with contextlib.redirect_stdout(io.StringIO()):
-                    status = download.run_single_download({}, [name], "/tmp")
+                    status = download.run_single_download({}, [name], self.output_dir)
 
                 self.assertEqual(status, 0)
                 fetch.assert_called_once_with(
                     "https://render.albiononline.com/v1/spell/CLEAVE.png",
-                    "/tmp/" + name.strip() + ".png",
+                    os.path.join(self.output_dir, name.strip() + ".png"),
                 )
 
     def test_spell_lookup_prefers_player_abilities_over_same_named_effects(self):
@@ -326,35 +405,37 @@ class DownloadTests(unittest.TestCase):
                     "https://render.albiononline.com/v1/spell/" + identifier + ".png",
                 )
 
-    def test_every_embedded_spell_id_is_accessible(self):
+    def test_every_curated_spell_name_and_id_is_accessible(self):
         names, identifiers = download.load_spell_catalog()
-        rows = [
-            row for row in csv.reader(io.StringIO(download.SPELLS_CSV))
-            if row and not row[0].startswith("#")
-        ]
-        self.assertEqual(len(identifiers), len(rows))
-        for row in rows:
-            with self.subTest(identifier=row[1]):
-                self.assertIn(download.norm_name(row[0]), names)
-                self.assertEqual(download.resolve_spell(row[1]), row[1])
-                if len(row) == 2:
-                    self.assertIn(row[1], names[download.norm_name(row[0])])
+        spells = json.loads(download.CATALOGUE_PATH.read_text(encoding="utf-8"))["spells"]
+        self.assertEqual(len(identifiers), len(set(spells.values())))
+        self.assertEqual(set(names), {download.norm_name(name) for name in spells})
+        for name, identifier in spells.items():
+            with self.subTest(name=name):
+                self.assertEqual(download.resolve_spell(name), identifier)
+                self.assertEqual(download.resolve_spell(identifier), identifier)
 
-    def test_ambiguous_spell_name_lists_ids_without_downloading(self):
-        output = io.StringIO()
-        with patch.object(download, "download_one") as fetch, contextlib.redirect_stdout(output):
-            status = download.run_single_download({}, ["Hush"], "/tmp")
-
-        self.assertEqual(status, 1)
-        self.assertIn("ambiguous", output.getvalue())
-        self.assertIn("PASSIVE_SILENCECHANCE", output.getvalue())
-        self.assertIn("WEAPON_SILENCE", output.getvalue())
-        fetch.assert_not_called()
+    def test_curated_labels_select_passive_and_recast_icons(self):
+        for name, identifier in (
+            ("Hush", "WEAPON_SILENCE"),
+            ("Hush (Passive)", "PASSIVE_SILENCECHANCE"),
+            ("Rending Rage", "RENDINGCOMBO"),
+            ("Rending Rage (Second cast)", "RENDINGCOMBO_MULTI2"),
+            ("Rending Rage (Third cast)", "RENDINGCOMBO_MULTI3"),
+        ):
+            with self.subTest(name=name), patch.object(download, "download_one") as fetch:
+                with contextlib.redirect_stdout(io.StringIO()):
+                    status = download.run_single_download({}, name.split(), self.output_dir)
+                self.assertEqual(status, 0)
+                fetch.assert_called_once_with(
+                    f"https://render.albiononline.com/v1/spell/{identifier}.png",
+                    os.path.join(self.output_dir, name + ".png"),
+                )
 
     def test_unknown_spell_name_fails_without_downloading(self):
         output = io.StringIO()
         with patch.object(download, "download_one") as fetch, contextlib.redirect_stdout(output):
-            status = download.run_single_download({}, ["Refreshing Spring"], "/tmp")
+            status = download.run_single_download({}, ["Refreshing Spring"], self.output_dir)
 
         self.assertEqual(status, 1)
         self.assertIn("not in the spell catalog", output.getvalue())
@@ -382,27 +463,28 @@ class DownloadTests(unittest.TestCase):
             "CLEAVE_MOVESPEED_BUFF", "MOB_UNDEAD_HERO_CLEAVE", "MOUNTSPELL_BIGCLEAVE",
             "PASSIVE_CAPE_THETFORD", "POTION_HEAL_P1", "VANITY_WARBANNER_PRESENT",
             "PASSIVE_AVALON_YIELD_ORE_T6", "PROTOTYPE_CD_PENALTY",
+            "PASSIVE_HEAD_YIELD_ORE_T8", "AXETHROW_SECOND", "Sky Fall",
         ):
             with self.subTest(identifier=identifier), self.assertRaises(ValueError):
                 download.resolve_spell(identifier)
         for identifier in (
             "CLEAVE", "SPRINT_CD_REDUCTION", "PANTHER_CLAWS", "BEAR_ROAR",
-            "PASSIVE_HEAD_YIELD_ORE_T8", "AFTER_IMAGE_RETURN",
+            "AFTER_IMAGE_RETURN",
         ):
             with self.subTest(identifier=identifier):
                 self.assertEqual(download.resolve_spell(identifier), identifier)
 
-    def test_unknown_and_ambiguous_batch_names_remain_for_retry(self):
+    def test_unknown_and_excluded_batch_names_remain_for_retry(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "requests.txt"
             unknown = '  "Foo, Bar"  \n'
-            ambiguous = '"Hush"\n'
-            path.write_text(unknown + '"Heroic Cleave"\n' + ambiguous, encoding="utf-8")
+            excluded = '"Sky Fall"\n'
+            path.write_text(unknown + '"Heroic Cleave"\n' + excluded, encoding="utf-8")
             with patch.object(download, "download_one") as fetch, contextlib.redirect_stdout(io.StringIO()):
                 status = download.run_batch_download({}, str(path), directory)
 
             self.assertEqual(status, 1)
-            self.assertEqual(path.read_text(encoding="utf-8"), unknown + ambiguous)
+            self.assertEqual(path.read_text(encoding="utf-8"), unknown + excluded)
             fetch.assert_called_once_with(
                 "https://render.albiononline.com/v1/spell/CLEAVE.png",
                 os.path.join(directory, "Heroic Cleave.png"),
@@ -460,7 +542,52 @@ class DownloadTests(unittest.TestCase):
             download.rewrite_failed_lines(str(path), ['"Failed Request"'])
 
             self.assertEqual(path.read_text(encoding="utf-8"), '"Failed Request"\n')
+            if os.name == "nt":
+                self.assertTrue(path.stat().st_mode & stat.S_IWRITE)
+            else:
+                self.assertEqual(stat.S_IMODE(path.stat().st_mode), 0o640)
+
+    def test_atomic_image_write_preserves_original_if_replace_fails(self):
+        path = Path(self.output_dir) / "existing.png"
+        path.write_bytes(b"original image")
+        with patch.object(download.urllib.request, "urlopen", return_value=FakeResponse()), patch.object(
+            download.os, "replace", side_effect=PermissionError("replace denied")
+        ), self.assertRaises(PermissionError):
+            download.download_one("https://example.invalid/icon", str(path))
+        self.assertEqual(path.read_bytes(), b"original image")
+        self.assertEqual(list(path.parent.glob(f".{path.name}.*.part")), [])
+
+    def test_atomic_image_replacement_preserves_file_permissions(self):
+        path = Path(self.output_dir) / "existing.png"
+        path.write_bytes(b"original image")
+        path.chmod(0o640)
+        with patch.object(download.urllib.request, "urlopen", return_value=FakeResponse()):
+            download.download_one("https://example.invalid/icon", str(path))
+        self.assertEqual(path.read_bytes(), b"png")
+        if os.name == "nt":
+            self.assertTrue(path.stat().st_mode & stat.S_IWRITE)
+        else:
             self.assertEqual(stat.S_IMODE(path.stat().st_mode), 0o640)
+
+    @unittest.skipUnless(os.name == "nt", "requires native Windows read-only file semantics")
+    def test_windows_read_only_replacement_preserves_original_and_cleans_temp_files(self):
+        for operation in ("image", "batch"):
+            with self.subTest(operation=operation):
+                path = Path(self.output_dir) / (operation + ".txt")
+                path.write_bytes(b"original")
+                path.chmod(stat.S_IREAD)
+                try:
+                    with self.assertRaises(PermissionError):
+                        if operation == "image":
+                            with patch.object(download.urllib.request, "urlopen", return_value=FakeResponse()):
+                                download.download_one("https://example.invalid/icon", str(path))
+                        else:
+                            download.rewrite_failed_lines(str(path), ["failed request"])
+                    self.assertEqual(path.read_bytes(), b"original")
+                    self.assertFalse(path.stat().st_mode & stat.S_IWRITE)
+                    self.assertEqual(list(path.parent.glob(f".{path.name}.*")), [])
+                finally:
+                    path.chmod(stat.S_IREAD | stat.S_IWRITE)
 
     def test_catalog_load_error_is_reported_without_a_traceback(self):
         output = io.StringIO()
@@ -472,11 +599,256 @@ class DownloadTests(unittest.TestCase):
             status = download.main(["Refreshing Sprint"])
 
         self.assertEqual(status, 1)
-        self.assertIn("[FAIL] Could not load item catalog: missing catalog", output.getvalue())
+        self.assertIn("[FAIL] Could not load catalogue: missing catalog", output.getvalue())
         self.assertNotIn("Traceback", output.getvalue())
 
 
+class CatalogueTests(unittest.TestCase):
+    def test_item_rules_construct_special_identifiers_and_filenames(self):
+        catalog = download.load_item_catalog()
+        cases = (
+            ("Bow 2", "T2_2H_BOW", "Bow 2.png"),
+            ("Dungeon Map (Solo) 3 1", "T3_RANDOM_DUNGEON_SOLO_TOKEN_D1@1", "Dungeon Map (Solo) 3.1.png"),
+            ("Dungeon Map (Group) 8 4", "T8_RANDOM_DUNGEON_TOKEN_D4@4", "Dungeon Map (Group) 8.4.png"),
+            ("Waystone (Large Group) 6", "T6_RANDOM_DUNGEON_ELITE_DRAGON_TOKEN_D1@1", "Waystone (Large Group) 6.1.png"),
+            ("Waystone (Large Group) 8 4", "T8_RANDOM_DUNGEON_ELITE_DRAGON_TOKEN_D4@4", "Waystone (Large Group) 8.4.png"),
+            ("Swiftclaw", "T5_MOUNT_COUGAR_KEEPER@1", "Swiftclaw 5.1.png"),
+            ("Beef Stew", "T8_MEAL_STEW", "Beef Stew.png"),
+            ("Black Panther 8", "UNIQUE_MOUNT_BLACK_PANTHER_ADC", "Black Panther.png"),
+            ("Siphoned Energy", "UNIQUE_GVGTOKEN_GENERIC", "Siphoned Energy.png"),
+            ("Healing Potion 2", "T2_POTION_HEAL", "Healing Potion 2.png"),
+            ("Healing Potion 6 3", "T6_POTION_HEAL@3", "Healing Potion 6.3.png"),
+        )
+        for line, identifier, filename in cases:
+            with self.subTest(line=line):
+                request = download.parse_request(line.split())
+                self.assertEqual(download.resolve_item(catalog, *request), (identifier, filename))
+        quest = download.parse_item_entry("Quest", {"id": "QUESTITEM_TEST", "tiers": [1], "enchant": 0, "quality": 1})
+        self.assertEqual(download.resolve_item({"quest": quest}, "Quest", 1, 0, 1), ("QUESTITEM_TEST", "Quest.png"))
+
+    def test_gathering_journals_have_only_verified_tiers_and_empty_identifiers(self):
+        catalog = download.load_item_catalog()
+        for name, material in (
+            ("Lumberjack's Journal", "WOOD"), ("Stonecutter's Journal", "STONE"),
+            ("Prospector's Journal", "ORE"), ("Cropper's Journal", "FIBER"),
+            ("Gamekeeper's Journal", "HIDE"),
+        ):
+            for tier in range(2, 9):
+                with self.subTest(name=name, tier=tier):
+                    self.assertEqual(download.resolve_item(catalog, name, tier, None, 1),
+                                     (f"T{tier}_JOURNAL_{material}_EMPTY", f"{name} {tier}.png"))
+
+    def test_aliases_share_rules_and_preserve_requested_filenames(self):
+        catalog = download.load_item_catalog()
+        for alias, canonical in json.loads(download.CATALOGUE_PATH.read_text(encoding="utf-8"))["aliases"].items():
+            with self.subTest(alias=alias):
+                self.assertIs(catalog[download.norm_name(alias)], catalog[download.norm_name(canonical)])
+                entered = "  ".join(alias.lower().split())
+                identifier, filename = download.resolve_item(catalog, entered, 8, 4, 5)
+                self.assertEqual(identifier, download.resolve_item(catalog, canonical, 8, 4, 5)[0])
+                self.assertEqual(filename, entered + " 8.4 Masterpiece.png")
+
+    def test_invalid_catalogue_options_never_download_in_any_input_mode(self):
+        lines = [
+            "Hunter Shoes 3", "Broadsword 3 1", "Beef Stew 8 0 2",
+            "Lumberjack's Journal 1", "Lumberjack's Journal 8 1",
+            "Swiftclaw 5 0", "Dungeon Map (Solo) 3 2", "Waystone (Large Group) 6 0",
+            "Siphoned Energy 8", "Siphoned Energy 1 0 2", "Hunter Shoes",
+        ]
+        for mode in ("command", "interactive", "file"):
+            with self.subTest(mode=mode), tempfile.TemporaryDirectory() as directory:
+                path = Path(directory) / "requests.txt"
+                path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+                with patch.object(download, "download_one") as fetch, contextlib.redirect_stdout(io.StringIO()):
+                    if mode == "command":
+                        statuses = [download.main(line.split()) for line in lines]
+                        self.assertEqual(statuses, [1] * len(lines))
+                    elif mode == "interactive":
+                        with patch.object(download.sys, "stdin", io.StringIO(path.read_text(encoding="utf-8") + "exit\n")):
+                            self.assertEqual(download.main([]), 1)
+                    else:
+                        self.assertEqual(download.main([str(path)]), 1)
+                        self.assertEqual(path.read_text(encoding="utf-8"), "\n".join(lines) + "\n")
+                fetch.assert_not_called()
+
+    def test_installed_runtime_uses_its_own_catalogue_from_another_directory(self):
+        with tempfile.TemporaryDirectory() as directory:
+            installed = Path(directory) / "bin with spaces"
+            installed.mkdir()
+            work = Path(directory) / "output with spaces \u6f22"
+            work.mkdir()
+            (work / "catalogue.json").write_text("{}", encoding="utf-8")
+            root = Path(download.__file__).parent
+            for name in ("download", "download.cmd", "download.py", "catalogue.json"):
+                shutil.copy2(root / name, installed / name)
+            commands = [[sys.executable, str(installed / name)] for name in ("download", "download.py")]
+            if os.name == "nt":
+                commands.append([str(installed / "download.cmd")])
+            else:
+                commands.extend([[str(installed / name)] for name in ("download", "download.py")])
+            for command in commands:
+                with self.subTest(command=command):
+                    result = subprocess.run(command, input="exit\n", cwd=work,
+                                            text=True, capture_output=True, timeout=15)
+                    self.assertEqual((result.returncode, result.stdout, result.stderr), (0, "", ""))
+            (installed / "catalogue.json").unlink()
+            for command in commands:
+                with self.subTest(command=command):
+                    result = subprocess.run(command + ["--help"], cwd=work,
+                                            text=True, capture_output=True, timeout=15)
+                    self.assertEqual(result.returncode, 0)
+                    result = subprocess.run(command + ["Heroic Cleave"], cwd=work,
+                                            text=True, capture_output=True, timeout=15)
+                    self.assertEqual(result.returncode, 1)
+                    self.assertIn("Could not load catalogue", result.stdout)
+                    self.assertNotIn("Traceback", result.stderr)
+
+    def test_lists_match_catalogue_scope(self):
+        data = json.loads(download.CATALOGUE_PATH.read_text(encoding="utf-8"))
+        root = download.CATALOGUE_PATH.parent / "lists"
+        items = {name.strip() for path in root.glob("*.txt") if path.name != "spells.txt"
+                 for line in path.read_text(encoding="utf-8").splitlines() for name in line.split(",") if name.strip()}
+        self.assertEqual(items, set(data["items"]) | set(data["aliases"]))
+        self.assertEqual(set(curated_spell_names((root / "spells.txt").read_text(encoding="utf-8"))), set(data["spells"]))
+
+    def test_malformed_catalogues_fail_without_falling_back(self):
+        base = {"items": {"Example": {"id": "MAIN_TEST", "tiers": [4], "enchant": 0, "quality": 1}},
+                "spells": {"Example Spell": "TEST"}, "aliases": {}}
+        cases = ["{", "[]", json.dumps({"items": {}}),
+                 json.dumps(base).replace('"MAIN_TEST"', '"MAIN_TEST", "id": "OTHER"')]
+        for field, value in (("tiers", []), ("tiers", [True]), ("quality", 6), ("min_enchant", 1),
+                             ("enchant_by_tier", {"8": [0]}), ("enchant_by_tier", {"4": [1]}),
+                             ("id_by_enchant", {"1": "OTHER"}), ("id", "")):
+            broken = json.loads(json.dumps(base))
+            broken["items"]["Example"][field] = value
+            cases.append(json.dumps(broken))
+        for aliases in ({"Alias": "Missing"}, {"EXAMPLE": "Example"}):
+            broken = dict(base, aliases=aliases)
+            cases.append(json.dumps(broken))
+        cases.append(json.dumps(dict(base, spells={"Spell": "ONE", " spell ": "TWO"})))
+        for content in cases:
+            with self.subTest(content=content), tempfile.TemporaryDirectory() as directory:
+                path = Path(directory) / "catalogue.json"
+                path.write_text(content, encoding="utf-8")
+                output = io.StringIO()
+                with patch.object(download, "CATALOGUE_PATH", path), patch.object(download, "download_one") as fetch:
+                    with contextlib.redirect_stdout(output):
+                        self.assertEqual(download.main(["Example", "4"]), 1)
+                self.assertIn("Could not load catalogue", output.getvalue())
+                fetch.assert_not_called()
+
+    def test_legacy_environment_override_cannot_expand_the_catalogue(self):
+        with tempfile.TemporaryDirectory() as directory, patch.dict(
+            os.environ, {"ALBION_ITEM_CATALOG_PATH": str(Path(directory) / "missing.json")}
+        ):
+            self.assertIn("siphoned energy", download.load_item_catalog())
+            with self.assertRaises(ValueError):
+                download.resolve_spell("Sky Fall")
+
+
+@unittest.skipUnless(os.name == "nt", "requires native Windows and py -3")
+class WindowsLauncherTests(unittest.TestCase):
+    def setUp(self):
+        directory = tempfile.TemporaryDirectory(prefix="download launcher ")
+        self.addCleanup(directory.cleanup)
+        installed = Path(directory.name) / "tools with spaces & (round) !"
+        installed.mkdir()
+        self.work = Path(directory.name) / "output with spaces"
+        self.work.mkdir()
+        self.launcher = installed / "download.cmd"
+        shutil.copy2(Path(download.__file__).with_name("download.cmd"), self.launcher)
+        # Isolate the launcher's process contract from network and catalogue logic.
+        (installed / "download.py").write_text(
+            "import json, os, sys\n"
+            "print(json.dumps({'args': sys.argv[1:], 'cwd': os.getcwd(), 'input': sys.stdin.read()}))\n"
+            "print('launcher stderr', file=sys.stderr)\n"
+            "raise SystemExit(int(os.environ['DOWNLOAD_TEST_STATUS']))\n",
+            encoding="utf-8",
+        )
+        self.args = ["Hunter Shoes", "8", "1", "4", "Lumberjack's Journal",
+                     "Hush (Passive)", "Rending Rage (Second cast)", "batch file.txt"]
+
+    def assert_launcher_result(self, result, status, powershell=False):
+        self.assertEqual(result.returncode, status)
+        if powershell:
+            # Windows PowerShell may format native stderr as an ErrorRecord.
+            self.assertIn("launcher stderr", result.stderr)
+        else:
+            self.assertEqual(result.stderr, "launcher stderr\n")
+        payload = json.loads(result.stdout)
+        self.assertEqual(payload["args"], self.args)
+        self.assertEqual(Path(payload["cwd"]).resolve(), self.work.resolve())
+        self.assertEqual(payload["input"], "input line\n")
+
+    def test_launcher_forwards_arguments_streams_working_directory_and_exit_status(self):
+        for status in (0, 1, 130):
+            with self.subTest(status=status):
+                result = subprocess.run(
+                    [str(self.launcher)] + self.args, input="input line\n", cwd=self.work,
+                    env=dict(os.environ, DOWNLOAD_TEST_STATUS=str(status)),
+                    text=True, capture_output=True, timeout=30,
+                )
+                self.assert_launcher_result(result, status)
+
+    def test_powershell_preserves_arguments_and_last_exit_code(self):
+        shells = [path for name in ("powershell.exe", "pwsh.exe") if (path := shutil.which(name))]
+        if not shells:
+            self.skipTest("requires Windows PowerShell or PowerShell 7")
+        arguments = ", ".join("'" + arg.replace("'", "''") + "'" for arg in self.args)
+        script = (
+            f"$requestArgs = @({arguments})\n"
+            "'input line' | & $env:DOWNLOAD_TEST_LAUNCHER @requestArgs\n"
+            "exit $LASTEXITCODE\n"
+        )
+        for shell in shells:
+            for status in (0, 1, 130):
+                with self.subTest(shell=shell, status=status):
+                    result = subprocess.run(
+                        [shell, "-NoLogo", "-NoProfile", "-NonInteractive", "-Command", script],
+                        cwd=self.work, env=dict(os.environ, DOWNLOAD_TEST_STATUS=str(status),
+                                               DOWNLOAD_TEST_LAUNCHER=str(self.launcher)),
+                        text=True, capture_output=True, timeout=30,
+                    )
+                    self.assert_launcher_result(result, status, powershell=True)
+
+
 class SpellCatalogGenerationTests(unittest.TestCase):
+    def test_unlisted_spells_with_missing_localization_do_not_block_updates(self):
+        sources = {
+            "localization": {"tmx": {"body": {"tu": [{"@tuid": "@SPELLS_CLEAVE", "tuv": {
+                "@xml:lang": "EN-US", "seg": "Heroic Cleave"}}]}}},
+            "spells": {"spells": {"activespell": [{"@uniquename": "CLEAVE"}, {"@uniquename": "UNLISTED"}],
+                                  "passivespell": [], "togglespell": []}},
+            "items": {"items": {"weapon": [{"@uniquename": "T4_SWORD", "@shopcategory": "weapons",
+                "@slottype": "mainhand", "craftingspelllist": {"craftspell": [
+                    {"@uniquename": "CLEAVE"}, {"@uniquename": "UNLISTED"}]}}]}},
+            "transformations": {"transformations": {}},
+        }
+        with tempfile.TemporaryDirectory() as directory:
+            for name, value in sources.items():
+                (Path(directory) / (name + ".json")).write_text(json.dumps(value), encoding="utf-8")
+            self.assertEqual(generate_catalog(Path(directory), ["Heroic Cleave"], {"Heroic Cleave": "CLEAVE"}),
+                             {"Heroic Cleave": "CLEAVE"})
+
+    def test_list_expansion_preserves_separate_passives_and_grouped_casts(self):
+        self.assertEqual(curated_spell_names("Rending Rage (Second cast, Third cast)\n\nHush (Passive)\nRending Rage\n"),
+                         ["Rending Rage", "Rending Rage (Second cast)", "Rending Rage (Third cast)", "Hush (Passive)"])
+
+    def test_generation_keeps_reviewed_ids_and_only_includes_listed_names(self):
+        spells = {"FIRST": ("Example", {"@uisprite": "icon"}),
+                  "SECOND": ("Example", {"@uisprite": "recast"}),
+                  "REMOVED": ("Removed", {"@uisprite": "other"})}
+        previous = {"Example": "FIRST", "Example (Return)": "SECOND", "Removed": "REMOVED"}
+        self.assertEqual(select_spells(["Example", "Example (Return)"], previous, spells, {"FIRST", "REMOVED"}),
+                         {"Example": "FIRST", "Example (Return)": "SECOND"})
+
+    def test_generation_requires_review_for_changed_or_ambiguous_icons(self):
+        spells = {"ACTIVE": ("Hush", {"@uisprite": "active"}),
+                  "PASSIVE": ("Hush", {"@uisprite": "passive"})}
+        for names, previous in ((["Hush"], {}), (["Hush (Passive)"], {}), (["Hush"], {"Hush": "REMOVED"})):
+            with self.subTest(names=names, previous=previous), self.assertRaises(ValueError):
+                select_spells(names, previous, spells, {"ACTIVE", "PASSIVE"})
+
     def test_scope_follows_equipped_spells_inheritance_and_used_forms(self):
         items = {
             "weapon": [

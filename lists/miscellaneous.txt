@@ -1,0 +1,60 @@
+Bag
+Satchel of Insight
+
+Cape
+
+Bridgewatch Cape
+Fort Sterling Cape
+Lymhurst Cape
+Martlock Cape
+Thetford Cape
+Caerleon Cape
+Brecilien Cape
+
+Avalonian Cape
+Demon Cape
+Heretic Cape
+Keeper Cape
+Morgana Cape
+Smuggler Cape
+Undead Cape
+
+Quarrier Backpack
+Lumberjack Backpack
+Skinner Backpack
+Miner Backpack
+Harvester Backpack
+Fisherman Backpack
+
+Tracking Toolkit
+
+Stone Hammer
+Avalonian Stone Hammer
+Axe
+Avalonian Axe
+Skinning Knife
+Avalonian Skinning Knife
+Pickaxe
+Avalonian Pickaxe
+Sickle
+Avalonian Sickle
+
+Fishing Rod
+Avalonian Fishing Rod
+
+Lumberjack's Journal
+Stonecutter's Journal
+Prospector's Journal
+Cropper's Journal
+Gamekeeper's Journal
+
+Siege Hammer
+Avalonian Siege Hammer
+
+Dungeon Map (Group)
+Dungeon Map (Large Group)
+Dungeon Map (Solo)
+Waystone (Large Group)
+Waystone Fragment
+
+Siphoned Energy

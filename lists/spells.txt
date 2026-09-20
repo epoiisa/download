@@ -1,0 +1,693 @@
+Heroic Strike
+Heroic Cleave
+
+Blade Cyclone
+Interrupt
+Splitting Slash
+Hamstring
+Parry Strike
+Iron Will
+
+Deep Cuts
+Weakening
+Heroic Fighting
+Increased Defense
+
+Mighty Blow
+Charge
+Spinning Blades
+Crescent Slash
+Fearless Strike
+Soulless Stream
+Majestic Smash
+Limitbreaker
+
+Rending Strike
+Rending Spin
+Rending Rage (Second cast, Third cast)
+
+Deadly Chop
+Adrenaline Boost
+Battle Rush
+Internal Bleeding
+Raging Blades
+
+Deep Cuts
+Life Leech
+Increased Defense
+Aggressive Rush
+
+Blood Bandit
+Whirlwind
+Tear Apart
+Morgana Raven
+Bloody Reap
+Razor Cut
+Aftershock
+Relentless Assault
+Relentless Reap
+
+Defensive Slam
+Threatening Smash
+Sacred Ground
+
+Ground Shaker
+Snare Charge
+Guard Rune
+Air Compressor
+
+Stunning Strike
+Energetic
+Life Leech
+Dreadladen Fighting
+
+Deep Leap
+Battle Howl
+Gravitas
+Force of Nature
+Shrinking Curse
+Vendetta
+Blessed Aurora
+Eye of the Storm (Aura)
+
+Powerful Swing
+Threatening Strike
+Iron Breaker
+
+Seismic Tremor
+Slowing Charge
+Power Geyser
+Knockout
+Inertia Ring
+
+Stunning Strike
+Energetic
+Life Leech
+Dreadladen Fighting
+
+Earth Shatter
+Groundbreaker
+Tackle
+Grasp of the Undead
+Giant Steps
+Giant Smash
+Ground Pound
+Onslaught
+Hyperstatic
+
+Create Opening
+Dragon Leap
+Fleet Footwork
+Shockwave
+
+Triple Kick
+Backhand Strike
+Counter
+Devastating Combo
+
+Fatal Fury
+Rage
+Rushdown
+Hard to Catch
+
+Blazing Geyser
+Falcon Smash (Dive)
+Gravitational Collapse
+Hundred Striking Fists
+Infernal Boulder
+Earth Crusher
+Purifying Combination (Second cast)
+Unstoppable Rush
+
+Auto Fire
+Explosive Bolt
+
+Explosive Salvo
+Sunder Shot
+Caltrops
+Knockback Shot
+Noise Eraser
+
+Forceful Bolts
+Well-Prepared
+Energetic
+Furious
+
+Snipe Shot
+Sweeping Bolt
+Exploding Shot
+Explosive Mine
+Deathward Climax
+Vicious Barrage
+Divine Engine
+Flickershots
+
+Multishot
+Deadly Shot
+Poisoned Arrow
+
+Ray of Light
+Frost Shot
+Speed Shot
+Explosive Arrows
+
+Slow Poison
+Energetic
+Piercing Arrows
+Auto-Attack Speed
+
+Enchanted Quiver (Dash)
+Magic Arrow
+Rain of Arrows
+Undead Arrows
+Demon Arrow
+Raging Storm
+Lucent Hawk
+Sky's Fury
+
+Sunder Armor
+Deadly Swipe
+Assassin Spirit
+
+Throwing Blades
+Dash
+Forbidden Stab
+Shadow Edge
+Chain Slash
+
+Deep Cuts
+Life Leech
+Auto-Attack Speed
+Aggressive Rush
+
+Bloodthirsty Blade
+Slit Throat
+Disembowel
+Lunging Stabs
+Blood Ritual
+Ghost Strike
+Merciless Finish
+Ring of Death
+
+Lunging Strike
+Spirit Spear
+
+Forest of Spears
+Inner Focus
+Cripple
+Deflecting Spin
+Impaler
+Harpoon
+
+Slow Poison
+Life Leech
+Aggressive Rush
+Auto-Attack Speed
+
+Reckless Charge
+Rooting Smash
+Fling
+Spear Throw
+Corrupting Steel
+Spectral Trident
+Breakthrough
+Razor's Edge
+
+Concussive Combo
+Whirling Strikes
+Cartwheel
+
+Gale Dance
+Stun Run
+Forceful Swing
+Rising Blow
+Separator
+
+Stunning Strike
+Energetic
+Life Leech
+Dreadladen Fighting
+
+Vault Leap
+Hurricane
+Soaring Swipe
+Fatal Blade
+Tornado
+Mystic Rocks
+Soul Shaker
+Phantom Twin
+Phantom Slash
+
+Unstable Projectile
+Reality Fissure
+Adapting Matter
+Pulse Shock
+Sinister Swipes
+Seedling's Bloom
+Feral Bash
+Tear Open
+Fireflash Orb (Teleport)
+Boulder Crash
+Piercing Light
+Crystalburst
+
+Distortion
+Positional Drift
+Tether Shift
+Polymorph
+Pounce
+Barbed Roots
+Wild Onslaught (Roar)
+Rip Through
+Hellfire Barrage
+Tectonic Shift
+Tectonic Slam
+Judgment
+Serpent's Gaze
+
+Altered Beast
+Intimidating Presence
+Innate Power
+Rule Bender
+Infected Scrapes
+Spore Burst
+Swipes
+Frenzied Slashes
+Melting Point
+Powerful Impact
+Light Spark
+Neurotoxin
+
+End Transformation
+Shadow Panther Transformation
+Sylvian Transformation
+Spirit Bear Transformation
+Werewolf Transformation
+Hellfire Imp Transformation
+Runestone Golem Transformation
+Dawnbird Transformation
+Crystal Cobra Transformation
+
+Rejuvenation
+Thorn Growth
+Rejuvenating Flower
+
+Brambleseed
+Revitalize
+Protection of Nature
+Cleanse Heal
+Rejuvenating Breeze
+
+Adrenaline Driven Charity
+Energetic
+Calmness
+Hit and Run
+
+Circle of Life
+Living Armor
+Well Of Life
+Spiritual Seed
+Elevated Nature
+Spirit Animal
+Soul Link
+Dual Nature
+Ensnare
+Fortify
+
+Fire Bolt
+Burning Field
+Searing Flame
+
+Flame Blast
+Wall of Flames
+Raging Flare
+Fire Wave
+Fire Artillery
+
+Burn
+Energetic
+Aggressive Caster
+Furious
+
+Pyroblast
+Flame Pillar
+Combustion
+Magma Sphere
+Meteor
+Flame Tornado
+Flaming Phoenix
+Spontaneous Combustion
+
+Generous Heal
+Smite
+Holy Flash
+
+Sacred Pulse
+Holy Beam
+Holy Blessing
+Holy Orb
+Reawaken
+
+Adrenaline Driven Charity
+Energetic
+Magic Force
+Ascended
+
+Desperate Prayer
+Holy Explosion
+Divine Protection
+Holy Touch
+Salvation
+Celestial Sphere
+Divine Intervention
+Sanctify
+
+Chain Missile
+Arcane Protection
+Magic Shock
+
+Enigma Blade
+Motivating Cleanse
+Frazzle
+Empowering Beam
+Mimic
+
+Lingering Power
+Energetic
+Calmness
+Hush (Passive)
+
+Arcane Orb
+Time Freeze
+Protective Beam
+Black Hole
+Time Corridor
+The Void
+Dark Sphere
+Starfall
+
+Frostbite
+Ice Shard
+Frozen Surge
+
+Frost Bomb
+Frost Beam
+Frost Nova
+Frost Lance
+Glacial Obelisk
+
+Frost
+Energetic
+Aggressive Caster
+Furious
+
+Freezing Wind
+Hail
+Ice Storm
+Avalanche
+Frozen Hell
+Ice Crystal
+Glacial Prison
+Arctic Volley
+
+Vile Curse
+Cursed Sickle
+Cursed Tar
+
+Armor Piercer
+Desecrate
+Grudge
+Cursed Beam
+Dark Matter
+
+Bane
+Energetic
+Furious
+Hit and Run
+
+Death Curse
+Area of Decay
+Anguished Soul
+Enfeeble Blades
+Haunting Screams
+Cataclysm
+Inner Shadow
+Plaguebringer
+
+Dodge
+Rejuvenating Sprint
+
+Courier
+Toughness
+Authority
+Tenacity
+
+Wanderlust
+Shield Charge
+Giant
+Royal March
+Battle Frenzy
+Vengeful Sprint
+Elbow Smash
+Crush Charge
+Premonition
+
+Mend Wounds
+Taunt
+
+Toughness
+Authority
+Tenacity
+Spirit Crush
+Protective Instinct
+
+Fury
+Wind Wall
+Enfeeble Aura
+Energy Source
+Soul Chain
+Protection of the Fiends
+Force Shield
+Mythical Web
+Requite
+
+Energizing Shield
+Stone Skin
+
+Toughness
+Authority
+Tenacity
+
+Block
+Displacement Immunity
+Emergency Shield
+Ballista Support Fire
+Sacrifice
+Hush
+Electric Discharge
+Spider's Thread
+Purifying Smoke
+
+Dodge
+Refreshing Sprint
+
+Courier
+Balanced Mind
+Swiftness
+Quick Thinker
+
+Break Free
+Rush
+Swift Cut
+Evasive Jump
+Raging Blink
+Mark of Sacrifice
+Spectral Run
+After Image (Return)
+Blind Spot
+Burning Momentum
+
+Mend Wounds
+Inferno Shield
+
+Balanced Mind
+Swiftness
+Quick Thinker
+
+Bloodlust
+Haste
+Ambush
+Royal Banner
+Electric Field
+Life Steal Aura
+Self Ignition
+Mist Cloud
+Dynamic Defense
+Wings of Fire
+
+Energizing Shield
+Cleanse
+
+Balanced Mind
+Swiftness
+Quick Thinker
+
+Howl
+Retaliate
+Meditation
+Growing Rage
+Mortal Agony
+Smokebomb
+Flash of Insight
+Immortal
+Nasty Wounds
+Flare
+
+Dodge
+Energetic Sprint
+
+Courier
+Aggression
+Concentration
+Efficiency
+
+Focused Run
+Blink
+Delayed Teleport
+Defenseless Rush
+Frost Walk
+Position Swap
+Rotten Ground
+Ethereal Form
+Hover
+
+Mend Wounds
+Frost Shield
+
+Aggression
+Concentration
+Efficiency
+
+Speed Caster
+Everlasting Spirit
+Purging Shield
+Magic Rune
+Obsessive Burst
+Fear Aura
+Levitate
+Wild Magic
+Conjure Magic
+Energy Emission
+
+Energizing Shield
+Force Field
+
+Aggression
+Concentration
+Efficiency
+
+Aegis of Energy
+Ice Block
+Firebreath
+Perpetual Energy
+Circle of Inspiration
+Purge
+Inner Corruption
+Hyper Focus
+Avalonian Beam
+
+Dodge
+Rejuvenating Sprint
+Wanderlust
+Mend Wounds
+Ambush
+Wind Wall
+Block
+Cleanse
+Emergency Shield
+
+Quarrying Skills
+
+Motivating Pain
+Flow
+Fatigue-Proof
+
+Dodge
+Rejuvenating Sprint
+Wanderlust
+Mend Wounds
+Ambush
+Wind Wall
+Block
+Cleanse
+Emergency Shield
+
+Lumberjack Skills
+
+Sprint Shield
+Purging Shield
+Tree Trunks
+
+Dodge
+Rejuvenating Sprint
+Wanderlust
+Mend Wounds
+Ambush
+Wind Wall
+Block
+Cleanse
+Emergency Shield
+
+Skinning Skills
+
+Scent of the Wilderness
+Hide Animal Poison
+Bear Trap
+
+Dodge
+Rejuvenating Sprint
+Wanderlust
+Mend Wounds
+Ambush
+Wind Wall
+Block
+Cleanse
+Emergency Shield
+
+Mining Skills
+
+Flee
+Wind Shield
+Motivating Worker's Song
+
+Dodge
+Rejuvenating Sprint
+Wanderlust
+Mend Wounds
+Ambush
+Wind Wall
+Block
+Cleanse
+Emergency Shield
+
+Harvesting Skills
+
+Ethereal Path
+Spirit of Vengeance
+Magic Pollen
+
+Dodge
+Rejuvenating Sprint
+Wanderlust
+Mend Wounds
+Ambush
+Wind Wall
+Block
+Cleanse
+Emergency Shield
+
+Fisherman Skills
+
+Splash Wave
+Water Shield
+Rotten Fish

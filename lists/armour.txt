@@ -1,0 +1,116 @@
+Soldier Boots
+Knight Boots
+Guardian Boots
+Royal Boots
+Graveguard Boots
+Demon Boots
+Judicator Boots
+Duskweaver Boots
+Boots of Valor
+
+Soldier Armor
+Knight Armor
+Guardian Armor
+Royal Armor
+Graveguard Armor
+Demon Armor
+Judicator Armor
+Duskweaver Armor
+Armor of Valor
+
+Soldier Helmet
+Knight Helmet
+Guardian Helmet
+Royal Helmet
+Graveguard Helmet
+Demon Helmet
+Judicator Helmet
+Duskweaver Helmet
+Helmet of Valor
+
+Mercenary Shoes
+Hunter Shoes
+Assassin Shoes
+Royal Shoes
+Stalker Shoes
+Hellion Shoes
+Specter Shoes
+Mistwalker Shoes
+Shoes of Tenacity
+Dragonslayer Shoes
+
+Mercenary Jacket
+Hunter Jacket
+Assassin Jacket
+Royal Jacket
+Stalker Jacket
+Hellion Jacket
+Specter Jacket
+Mistwalker Jacket
+Jacket of Tenacity
+Dragonslayer Jacket
+
+Mercenary Hood
+Hunter Hood
+Assassin Hood
+Royal Hood
+Stalker Hood
+Hellion Hood
+Specter Hood
+Mistwalker Hood
+Hood of Tenacity
+Dragonslayer Hood
+
+Scholar Sandals
+Cleric Sandals
+Mage Sandals
+Royal Sandals
+Druid Sandals
+Fiend Sandals
+Cultist Sandals
+Feyscale Sandals
+Sandals of Purity
+
+Scholar Robe
+Cleric Robe
+Mage Robe
+Royal Robe
+Druid Robe
+Fiend Robe
+Cultist Robe
+Feyscale Robe
+Robe of Purity
+
+Scholar Cowl
+Cleric Cowl
+Mage Cowl
+Royal Cowl
+Druid Cowl
+Fiend Cowl
+Cultist Cowl
+Feyscale Hat
+Cowl of Purity
+
+Quarrier Workboots
+Quarrier Garb
+Quarrier Cap
+
+Lumberjack Workboots
+Lumberjack Garb
+Lumberjack Cap
+
+Skinner Workboots
+Skinner Garb
+Skinner Cap
+
+Miner Workboots
+Miner Garb
+Miner Cap
+
+Harvester Workboots
+Harvester Garb
+Harvester Cap
+
+Fisherman Workboots
+Fisherman Garb
+Fisherman Cap

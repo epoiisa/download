@@ -1,0 +1,152 @@
+Broadsword
+Claymore
+Dual Swords
+Clarent Blade
+Carving Sword
+Galatine Pair
+Kingmaker
+Infinity Blade
+
+Battleaxe
+Greataxe, The Hand of Khor
+Halberd
+Carrioncaller
+Infernal Scythe
+Bear Paws
+Realmbreaker
+Crystal Reaper
+
+Mace
+Heavy Mace
+Morning Star
+Bedrock Mace
+Incubus Mace
+Camlann Mace
+Oathkeepers
+Dreadstorm Monarch
+
+Hammer
+Polehammer
+Great Hammer
+Tombhammer
+Forge Hammers
+Grovekeeper
+Hand of Justice
+Truebolt Hammer
+
+Brawler Gloves
+Battle Bracers
+Spiked Gauntlets
+Ursine Maulers
+Hellfire Hands
+Ravenstrike Cestus
+Fists of Avalon
+Forcepulse Bracers
+
+Crossbow
+Heavy Crossbow
+Light Crossbow
+Weeping Repeater
+Boltcasters
+Siegebow
+Energy Shaper
+Arclight Blasters
+
+Bow
+Warbow
+Longbow
+Whispering Bow
+Wailing Bow
+Bow of Badon
+Mistpiercer
+Skystrider Bow
+
+Dagger
+Dagger Pair
+Claws
+Bloodletter
+Demonfang
+Deathgivers
+Bridled Fury
+Twin Slayers
+
+Spear
+Pike
+Glaive
+Heron Spear
+Spirithunter
+Trinity Spear
+Daybreaker
+Rift Glaive
+
+Quarterstaff
+Iron-clad Staff
+Double Bladed Staff
+Black Monk Stave, Black Monk Staff
+Soulscythe
+Staff of Balance
+Grailseeker
+Phantom Twinblade
+
+Prowling Staff
+Rootbound Staff
+Primal Staff
+Bloodmoon Staff
+Hellspawn Staff
+Earthrune Staff
+Lightcaller
+Stillgaze Staff
+
+Nature Staff
+Great Nature Staff
+Wild Staff
+Druidic Staff
+Blight Staff
+Rampant Staff
+Ironroot Staff
+Forgebark Staff
+
+Fire Staff
+Great Fire Staff, Vendetta's Wrath
+Infernal Staff
+Wildfire Staff
+Brimstone Staff
+Blazing Staff
+Dawnsong
+Flamewalker Staff
+
+Holy Staff
+Great Holy Staff
+Divine Staff
+Lifetouch Staff
+Fallen Staff
+Redemption Staff
+Hallowfall
+Exalted Staff
+
+Arcane Staff
+Great Arcane Staff
+Enigmatic Staff
+Witchwork Staff
+Occult Staff
+Malevolent Locus
+Evensong
+Astral Staff
+
+Frost Staff
+Great Frost Staff
+Glacial Staff
+Hoarfrost Staff
+Icicle Staff
+Permafrost Prism
+Chillhowl
+Arctic Staff
+
+Cursed Staff
+Great Cursed Staff
+Demonic Staff
+Lifecurse Staff
+Cursed Skull
+Damnation Staff
+Shadowcaller
+Rotcaller Staff
