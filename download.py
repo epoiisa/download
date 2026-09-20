@@ -10,6 +10,8 @@ Examples:
 
 from __future__ import annotations
 
+import codecs
+import io
 import json
 import os
 import re
@@ -51,33 +53,25 @@ Examples:
   download Refreshing Sprint
   download Hunter Shoes 8 1 4
   download Guardian Armor 6
-  download "Hush (Passive)"
+  download Hush
+  download Rending Rage
   download "Lumberjack's Journal" 8
   download downloads.txt
 
 Notes:
-  download with no arguments reads one request per line, with no visible prompt
-  exit, quit, or Ctrl+C leaves interactive mode
-  end of input: Ctrl+D on macOS/Linux; Ctrl+Z then Enter on Windows
-  names containing spaces do not need quotes
-  at the shell, double-quote names containing apostrophes or parentheses
-  interactive and file lines use: Name [tier [enchant [quality]]]
-  PNGs are saved in the current directory; change directory to choose the output
-  names and allowed item values come from catalogue.json beside download.py
-  spell names and IDs in the catalogue are accepted
-  use labels such as Hush (Passive) and Rending Rage (Second cast) for distinct icons
-  tier may be omitted for items with only one available tier
-  enchant defaults to the lowest available level (usually 0)
-  quality defaults to 1
-  successful file entries are removed from the file
-  failed file entries stay in the file
-  text files must be UTF-8 (with or without a BOM); LF and CRLF are accepted
-  exit status: 0 for success, 1 for failures, 130 for interactive Ctrl+C
+  Run download without arguments to enter interactive mode. Enter one request per line. No startup prompt is displayed. Type exit or quit, or press Ctrl+C, to leave interactive mode. You can also exit with Ctrl+D on macOS/Linux or Ctrl+Z then Enter on Windows.
+
+  Names containing spaces do not need quotes. At the shell, use double quotes for names containing apostrophes or parentheses. Interactive and file requests use: Name [tier [enchant [quality]]]. PNGs are saved in the current directory. Change directory to choose the output.
+
+  Names and supported item values come from catalogue.json beside download.py. Spell names and IDs listed in the catalogue are accepted. In a terminal, shared spell names such as Hush or Rending Rage show a menu. Enter a choice number, or press Enter to cancel that request. Full labels, such as Hush (passive), and spell IDs select icons directly. Text files and redirected input/output use exact names without a menu; a bare name such as Rending Rage selects its base icon. Tier may be omitted only when an item has one available tier. Enchantment defaults to the lowest available level, usually 0. Quality defaults to 1.
+
+  Successful file entries are removed; failed entries remain for retry. Text files accept UTF-8 (with or without a BOM) or UTF-16 with a BOM. Both LF and CRLF line endings are supported. Exit status: 0 for success, 1 for failures, or 130 for command/interactive Ctrl+C.
 """
 
 _NAME_SPACE_RX = re.compile(r"\s+")
 _INTEGER_RX = re.compile(r"[+-]?[0-9]+")
 _IDENTIFIER_RX = re.compile(r"[A-Z0-9_]+")
+_SPELL_LABEL_RX = re.compile(r" \([^()]+\)$")
 
 
 @dataclass(frozen=True)
@@ -100,6 +94,7 @@ class Catalogue:
     items: Dict[str, ItemEntry]
     spell_names: Dict[str, str]
     spell_ids: Dict[str, str]
+    spell_choices: Dict[str, List[str]]
 
 
 @dataclass(frozen=True)
@@ -208,7 +203,11 @@ def load_catalogue(path: Path) -> Catalogue:
     names = {norm_name(name): catalog_identifier(ident, f"Spell '{name}'")
              for name, ident in data["spells"].items()}
     identifiers = {norm_name(ident): ident for ident in names.values()}
-    return Catalogue(items, names, identifiers)
+    choices: Dict[str, List[str]] = {}
+    for name in data["spells"]:
+        base = _SPELL_LABEL_RX.sub("", name)
+        choices.setdefault(norm_name(base), []).append(name)
+    return Catalogue(items, names, identifiers, choices)
 
 
 def load_item_catalog() -> Dict[str, ItemEntry]:
@@ -232,6 +231,36 @@ def resolve_spell(name: str) -> str:
     if identifier:
         return identifier
     raise ValueError(f"'{name}' is not in the spell catalog.")
+
+
+def select_spell(name: str) -> str:
+    # Never consume another request from a pipe or hide a menu in redirected output.
+    if not sys.stdin.isatty() or not sys.stdout.isatty():
+        return name
+    catalogue = load_catalogue(CATALOGUE_PATH)
+    key = norm_name(name)
+    if catalogue.spell_ids.get(key) == name.strip():
+        return name
+    labels = catalogue.spell_choices.get(key, [])
+    if len(labels) < 2:
+        return name
+
+    print(f"Choose an icon for '{name}':")
+    choices = {str(index): label for index, label in enumerate(labels, start=1)}
+    for number, label in choices.items():
+        print(f"  {number}. {label}")
+    while True:
+        choice = input(f"Select 1-{len(labels)} (Enter to cancel): ").strip()
+        if choice.casefold() in ("exit", "quit"):
+            raise EOFError
+        if not choice:
+            raise ValueError(f"Cancelled '{name}'.")
+        if choice in choices:
+            label = choices[choice]
+            base = _SPELL_LABEL_RX.sub("", label)
+            # Keep the entered spelling and append the selected variant's label.
+            return name + label[len(base):]
+        print(f"Enter a number from 1 to {len(labels)}, or press Enter to cancel.")
 
 
 def is_unique_identifier(ident: str) -> bool:
@@ -357,23 +386,30 @@ def parse_requests_file(path: str) -> Tuple[List[BatchRequest], List[Tuple[int, 
     requests_to_run: List[BatchRequest] = []
     rejected_lines: List[Tuple[int, str]] = []
 
-    with open(path, "r", encoding="utf-8-sig", newline="") as handle:
-        for line_number, raw_line in enumerate(handle, start=1):
-            original_line = raw_line.rstrip("\r\n")
-            stripped_line = original_line.strip()
-            if not stripped_line or stripped_line.startswith("#"):
-                continue
+    with open(path, "rb") as raw_handle:
+        prefix = raw_handle.read(4)
+        raw_handle.seek(0)
+        # UTF-32 LE starts with the UTF-16 LE BOM; do not misread it as UTF-16.
+        if prefix in (codecs.BOM_UTF32_LE, codecs.BOM_UTF32_BE):
+            raise UnicodeError("UTF-32 batch files are not supported.")
+        encoding = "utf-16" if prefix.startswith((codecs.BOM_UTF16_LE, codecs.BOM_UTF16_BE)) else "utf-8-sig"
+        with io.TextIOWrapper(raw_handle, encoding=encoding, newline="") as handle:
+            for line_number, raw_line in enumerate(handle, start=1):
+                original_line = raw_line.rstrip("\r\n")
+                stripped_line = original_line.strip()
+                if not stripped_line or stripped_line.startswith("#"):
+                    continue
 
-            try:
-                name, tier, enchant, quality = parse_request(split_request_line(stripped_line))
-            except ValueError as exc:
-                print(f"[FAIL] Line {line_number}: {exc} Leaving line in file.")
-                rejected_lines.append((line_number, original_line))
-                continue
+                try:
+                    name, tier, enchant, quality = parse_request(split_request_line(stripped_line))
+                except ValueError as exc:
+                    print(f"[FAIL] Line {line_number}: {exc} Leaving line in file.")
+                    rejected_lines.append((line_number, original_line))
+                    continue
 
-            requests_to_run.append(
-                BatchRequest(name, tier, enchant, quality, original_line, line_number)
-            )
+                requests_to_run.append(
+                    BatchRequest(name, tier, enchant, quality, original_line, line_number)
+                )
 
     return requests_to_run, rejected_lines
 
@@ -563,9 +599,13 @@ def run_single_download(
             print(f"[OK] Downloaded '{name}' to {output_path}")
             return 0
 
-        output_path = os.path.join(output_dir, safe_file_stem(name) + ".png")
         try:
+            name = select_spell(name)
+            output_path = os.path.join(output_dir, safe_file_stem(name) + ".png")
             download_one(build_spell_url(name), output_path)
+        except EOFError:
+            print(f"\n[FAIL] Cancelled '{name}'.")
+            raise
         except ValueError as exc:
             print(f"[FAIL] {exc}")
             return 1
@@ -612,6 +652,8 @@ def run_interactive(catalog: Mapping[str, ItemEntry], output_dir: str) -> int:
                 continue
             if run_single_download(catalog, args, output_dir):
                 status = 1
+    except EOFError:
+        return 1
     except KeyboardInterrupt:
         print()
         return 130
@@ -645,7 +687,13 @@ def main(argv: Sequence[str] | None = None) -> int:
     if len(args) == 1 and os.path.isfile(args[0]):
         return run_batch_download(catalog, args[0], output_dir)
 
-    return run_single_download(catalog, args, output_dir)
+    try:
+        return run_single_download(catalog, args, output_dir)
+    except EOFError:
+        return 1
+    except KeyboardInterrupt:
+        print()
+        return 130
 
 
 if __name__ == "__main__":

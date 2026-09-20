@@ -14,17 +14,13 @@ Requires [Python 3.8+](https://www.python.org/downloads/) (`python3` on macOS/Li
 curl -fsSL https://raw.githubusercontent.com/epoiisa/download/main/install.sh | sh
 ```
 
-[View install.sh](install.sh)
-
 ### Windows PowerShell
 
 ```powershell
 irm https://raw.githubusercontent.com/epoiisa/download/main/install.ps1 | iex
 ```
 
-[View install.ps1](install.ps1)
-
-Reopen your terminal application, then check:
+On all platforms, reopen your terminal application, then check:
 
 ```text
 download --help
@@ -37,28 +33,11 @@ Run the command from the directory where you want the PNGs saved:
 ```text
 download Hunter Shoes 8 1 4
 download Heroic Cleave
-download "Hush (Passive)"
-download "Rending Rage (Second cast)"
+download Hush
+download Rending Rage
 download "Lumberjack's Journal" 8
 download Siphoned Energy
 download --help
-```
-
-These requests work in macOS/Linux shells and Windows PowerShell. To choose another output directory, create it and change into it first, for example:
-
-```bash
-# macOS/Linux
-mkdir -p "$HOME/Albion Icons"
-cd "$HOME/Albion Icons"
-download Siphoned Energy
-```
-
-```powershell
-# Windows PowerShell
-$iconDir = Join-Path $env:USERPROFILE 'Albion Icons'
-New-Item -ItemType Directory -Path $iconDir -Force | Out-Null
-Set-Location -LiteralPath $iconDir
-download Siphoned Energy
 ```
 
 Downloading the same request again replaces its existing PNG.
@@ -75,7 +54,20 @@ Item requests use `Name <tier> [enchant] [quality]`. The first integer starts th
 
 Only each item's supported values are accepted. Look up names and options in [catalogue.json](catalogue.json). The five gathering journal names select empty journal icons.
 
-Spell requests have no numeric values. Use the catalogue's full label for a distinct icon, such as `Hush (Passive)` or `Rending Rage (Second cast)`. Catalogue spell IDs are also accepted; exact uppercase IDs take precedence over names.
+Spell requests have no numeric values. In a terminal, shared names and spells with multiple casts show a numbered menu:
+
+```text
+download Rending Rage
+Choose an icon for 'Rending Rage':
+  1. Rending Rage
+  2. Rending Rage (second cast)
+  3. Rending Rage (third cast)
+Select 1-3 (Enter to cancel): 2
+```
+
+This saves `Rending Rage (second cast).png`. `Hush` offers its active and passive icons. Enter a choice number, or press Enter to cancel the request. Full labels such as `download "Hush (passive)"` and catalogue spell IDs select icons directly; exact uppercase IDs take precedence over names.
+
+Text files and redirected input/output use exact names without a menu: `Hush` selects the active icon and `Rending Rage` selects the base icon. Use full labels or spell IDs to select other icons.
 
 Names ignore case and repeated whitespace. Spaces do not need quotes. At the shell, quote names containing special characters such as apostrophes or parentheses, as shown above. In interactive mode and text files, enter those names literally.
 
@@ -85,7 +77,8 @@ Run `download` without arguments, then type one request per line. There is no st
 
 ```text
 Hunter Shoes 8 1 4
-Hush (Passive)
+Hush
+2
 Lumberjack's Journal 8
 Siphoned Energy
 exit
@@ -95,7 +88,7 @@ Each request prints its result. Failed requests leave the session running. Type 
 
 ### Text files
 
-Create a UTF-8 text file with one request per line, without the initial `download`. UTF-8 with or without a byte-order mark (BOM), and Windows CRLF or Unix LF line endings, are accepted:
+Create a plain text `.txt` file with one request per line, without the initial `download`:
 
 ```text
 Refreshing Sprint
@@ -109,18 +102,6 @@ Then run:
 download items.txt
 ```
 
-In PowerShell, create a UTF-8 file explicitly:
+Quote a batch-file path if it contains spaces, such as `download "my items.txt"`.
 
-```powershell
-@'
-Refreshing Sprint
-Hunter Shoes 8 1 4
-Vendetta's Wrath 8
-'@ | Set-Content -LiteralPath .\items.txt -Encoding utf8
-download .\items.txt
-$LASTEXITCODE
-```
-
-Use `-Encoding utf8` when creating batch files; Windows PowerShell 5.1's `>` redirection writes UTF-16 instead. See [PowerShell character encoding](https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.core/about/about_character_encoding). Quote a batch-file path if it contains spaces, such as `download "my items.txt"`.
-
-Successful lines are removed from the file; failed lines remain for retry, in their original order. The rewritten file uses UTF-8 without a BOM and LF line endings. Blank lines and lines beginning with `#` are ignored in files and interactive mode. The command exits with status `0` on success, `1` if any request fails, or `130` if interactive mode is interrupted with Ctrl+C. Check `$LASTEXITCODE` immediately after the command in PowerShell, or `echo $?` in macOS/Linux shells.
+Successful lines are removed from the file; failed lines remain for retry, in their original order. Blank lines and lines beginning with `#` are ignored in files and interactive mode. The command exits with status `0` on success, `1` if any request fails or is cancelled, or `130` if a command or interactive session is interrupted with Ctrl+C.

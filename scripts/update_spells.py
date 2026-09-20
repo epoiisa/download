@@ -98,7 +98,7 @@ def curated_spell_names(text):
         if not line:
             continue
         match = re.fullmatch(r"(.+) \(([^()]+)\)", line)
-        if match and match[2] != "Passive":
+        if match and match[2].casefold() != "passive":
             expanded = [match[1]] + [f"{match[1]} ({cast.strip()})" for cast in match[2].split(",")]
         else:
             expanded = [line]

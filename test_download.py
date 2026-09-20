@@ -32,6 +32,11 @@ class FakeResponse:
         return b"png"
 
 
+class TerminalBuffer(io.StringIO):
+    def isatty(self):
+        return True
+
+
 class DownloadTests(unittest.TestCase):
     def setUp(self):
         directory = tempfile.TemporaryDirectory(prefix="download test ")
@@ -209,35 +214,37 @@ class DownloadTests(unittest.TestCase):
                 self.assertIn(b"\\u6f22", result.stdout)
                 self.assertEqual(result.stderr, b"")
 
-    def test_utf8_crlf_batch_with_optional_bom_replaces_outputs_and_keeps_failures(self):
+    def test_utf8_and_utf16_batches_replace_outputs_and_keep_failures(self):
         successful = {
             "Lumberjack's Journal 8": "Lumberjack's Journal 8.png",
             "Hunter Shoes 8 1 4": "Hunter Shoes 8.1 Excellent.png",
-            "Rending Rage (Second cast)": "Rending Rage (Second cast).png",
+            "Rending Rage (second cast)": "Rending Rage (second cast).png",
             "Siphoned Energy": "Siphoned Energy.png",
         }
         invalid = "  Hunter Shoes 99  "
-        unknown = "  Unknown \u6f22 Ability  "
+        unknown = "  Unknown \u6f22 \U0001f600 Ability  "
         lines = [next(iter(successful)), invalid, "# comment", ""]
         lines += list(successful)[1:] + [unknown]
-        for bom in (b"", codecs.BOM_UTF8):
-            with self.subTest(bom=bom), tempfile.TemporaryDirectory() as directory:
-                path = Path(directory) / "batch file.txt"
-                path.write_bytes(bom + ("\r\n".join(lines) + "\r\n").encode("utf-8"))
-                for filename in successful.values():
-                    (Path(directory) / filename).write_bytes(b"old image")
-                with patch.object(download.os, "getcwd", return_value=directory), patch.object(
-                    download.urllib.request, "urlopen", return_value=FakeResponse()
-                ) as fetch, contextlib.redirect_stdout(io.StringIO()):
-                    status = download.main([str(path)])
+        for encoding, bom in (("utf-8", b""), ("utf-8", codecs.BOM_UTF8),
+                              ("utf-16-le", codecs.BOM_UTF16_LE), ("utf-16-be", codecs.BOM_UTF16_BE)):
+            for newline in ("\n", "\r\n"):
+                with self.subTest(encoding=encoding, bom=bom, newline=newline), tempfile.TemporaryDirectory() as directory:
+                    path = Path(directory) / "batch file.txt"
+                    path.write_bytes(bom + (newline.join(lines) + newline).encode(encoding))
+                    for filename in successful.values():
+                        (Path(directory) / filename).write_bytes(b"old image")
+                    with patch.object(download.os, "getcwd", return_value=directory), patch.object(
+                        download.urllib.request, "urlopen", return_value=FakeResponse()
+                    ) as fetch, contextlib.redirect_stdout(io.StringIO()):
+                        status = download.main([str(path)])
 
-                self.assertEqual(status, 1)
-                self.assertEqual(fetch.call_count, len(successful))
-                self.assertEqual(path.read_bytes(), (invalid + "\n" + unknown + "\n").encode("utf-8"))
-                for filename in successful.values():
-                    self.assertEqual((Path(directory) / filename).read_bytes(), b"png")
-                self.assertEqual(sorted(p.name for p in Path(directory).iterdir()),
-                                 sorted([path.name] + list(successful.values())))
+                    self.assertEqual(status, 1)
+                    self.assertEqual(fetch.call_count, len(successful))
+                    self.assertEqual(path.read_bytes(), (invalid + "\n" + unknown + "\n").encode("utf-8"))
+                    for filename in successful.values():
+                        self.assertEqual((Path(directory) / filename).read_bytes(), b"png")
+                    self.assertEqual(sorted(p.name for p in Path(directory).iterdir()),
+                                     sorted([path.name] + list(successful.values())))
 
     def test_redirected_success_preserves_unicode_output_path(self):
         directory = Path(self.output_dir) / "icons \u6f22"
@@ -253,16 +260,37 @@ class DownloadTests(unittest.TestCase):
             self.assertIn(b"\\u6f22", buffer.getvalue())
         self.assertEqual((directory / "Siphoned Energy.png").read_bytes(), b"png")
 
-    def test_utf16_batch_is_reported_and_left_unchanged(self):
+    def test_utf16_successful_and_bom_only_batches_become_empty(self):
         path = Path(self.output_dir) / "utf16.txt"
-        original = "Heroic Cleave\r\n".encode("utf-16")
-        path.write_bytes(original)
-        output = io.StringIO()
-        with patch.object(download, "download_one") as fetch, contextlib.redirect_stdout(output):
-            self.assertEqual(download.main([str(path)]), 1)
-        self.assertIn("Could not read batch file", output.getvalue())
-        self.assertEqual(path.read_bytes(), original)
-        fetch.assert_not_called()
+        for encoding, bom in (("utf-16-le", codecs.BOM_UTF16_LE), ("utf-16-be", codecs.BOM_UTF16_BE)):
+            for text in ("Heroic Cleave", ""):
+                with self.subTest(encoding=encoding, text=text):
+                    path.write_bytes(bom + text.encode(encoding))
+                    with patch.object(download, "download_one") as fetch, contextlib.redirect_stdout(io.StringIO()):
+                        self.assertEqual(download.main([str(path)]), 0)
+                    self.assertEqual(path.read_bytes(), b"")
+                    self.assertEqual(fetch.call_count, 1 if text else 0)
+
+    def test_invalid_batch_encodings_are_reported_and_left_unchanged(self):
+        path = Path(self.output_dir) / "invalid.txt"
+        valid_line = "Heroic Cleave\r\n"
+        samples = [valid_line.encode("utf-8") + b"\xff"]
+        for encoding, bom in (("utf-16-le", codecs.BOM_UTF16_LE), ("utf-16-be", codecs.BOM_UTF16_BE)):
+            prefix = bom + valid_line.encode(encoding)
+            samples.append(prefix + b"\x00")
+            samples.append(prefix + "\ud800".encode(encoding, errors="surrogatepass"))
+        for encoding, bom in (("utf-32-le", codecs.BOM_UTF32_LE), ("utf-32-be", codecs.BOM_UTF32_BE)):
+            samples.append(bom + valid_line.encode(encoding))
+        for original in samples:
+            with self.subTest(original=original):
+                path.write_bytes(original)
+                output = io.StringIO()
+                with patch.object(download, "download_one") as fetch, contextlib.redirect_stdout(output):
+                    self.assertEqual(download.main([str(path)]), 1)
+                self.assertIn("Could not read batch file", output.getvalue())
+                self.assertNotIn("Traceback", output.getvalue())
+                self.assertEqual(path.read_bytes(), original)
+                fetch.assert_not_called()
 
     def test_batch_file_uses_command_line_argument_format(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -418,10 +446,12 @@ class DownloadTests(unittest.TestCase):
     def test_curated_labels_select_passive_and_recast_icons(self):
         for name, identifier in (
             ("Hush", "WEAPON_SILENCE"),
+            ("Hush (passive)", "PASSIVE_SILENCECHANCE"),
             ("Hush (Passive)", "PASSIVE_SILENCECHANCE"),
             ("Rending Rage", "RENDINGCOMBO"),
+            ("Rending Rage (second cast)", "RENDINGCOMBO_MULTI2"),
             ("Rending Rage (Second cast)", "RENDINGCOMBO_MULTI2"),
-            ("Rending Rage (Third cast)", "RENDINGCOMBO_MULTI3"),
+            ("Rending Rage (third cast)", "RENDINGCOMBO_MULTI3"),
         ):
             with self.subTest(name=name), patch.object(download, "download_one") as fetch:
                 with contextlib.redirect_stdout(io.StringIO()):
@@ -440,6 +470,150 @@ class DownloadTests(unittest.TestCase):
         self.assertEqual(status, 1)
         self.assertIn("not in the spell catalog", output.getvalue())
         fetch.assert_not_called()
+
+    def test_terminal_spell_selection_in_command_and_interactive_modes(self):
+        cases = (
+            ("hUsH", "1", "WEAPON_SILENCE", "hUsH"),
+            ("hush", "2", "PASSIVE_SILENCECHANCE", "hush (passive)"),
+            ("Rending Rage", "1", "RENDINGCOMBO", "Rending Rage"),
+            ("Rending Rage", "2", "RENDINGCOMBO_MULTI2", "Rending Rage (second cast)"),
+            ("RENDING   RAGE", "3", "RENDINGCOMBO_MULTI3", "RENDING RAGE (third cast)"),
+            ("After Image", "2", "AFTER_IMAGE_RETURN", "After Image (return)"),
+            ("Enchanted Quiver", "2", "SPEEDARCHER_KITE_MULTI_DASH", "Enchanted Quiver (dash)"),
+        )
+        for mode in ("command", "interactive"):
+            for name, choice, identifier, filename in cases:
+                with self.subTest(mode=mode, name=name, choice=choice):
+                    lines = choice + "\n"
+                    if mode == "interactive":
+                        lines = name + "\n" + lines + "exit\n"
+                    output = TerminalBuffer()
+                    with patch.object(download.sys, "stdin", TerminalBuffer(lines)), patch.object(
+                        download.os, "getcwd", return_value=self.output_dir
+                    ), patch.object(download, "download_one") as fetch, contextlib.redirect_stdout(output):
+                        self.assertEqual(download.main(name.split() if mode == "command" else []), 0)
+                    fetch.assert_called_once_with(
+                        f"https://render.albiononline.com/v1/spell/{identifier}.png",
+                        os.path.join(self.output_dir, filename + ".png"),
+                    )
+                    self.assertEqual(output.getvalue().count("Choose an icon"), 1)
+                    self.assertIn("Enter to cancel", output.getvalue())
+                    if name.lower() == "hush":
+                        self.assertIn("  1. Hush\n  2. Hush (passive)\n", output.getvalue())
+                    elif name == "Rending Rage":
+                        self.assertIn("  1. Rending Rage\n  2. Rending Rage (second cast)\n"
+                                      "  3. Rending Rage (third cast)\n", output.getvalue())
+
+    def test_terminal_explicit_labels_ids_and_unambiguous_names_skip_selection(self):
+        for name in ("Hush (passive)", "Rending Rage (second cast)", "Heroic Cleave",
+                     "WEAPON_SILENCE", "PASSIVE_SILENCECHANCE", "rendingcombo_multi3", "RUSH"):
+            with self.subTest(name=name), patch.object(download.sys, "stdin", TerminalBuffer()):
+                output = TerminalBuffer()
+                with patch("builtins.input") as read, patch.object(download, "download_one") as fetch:
+                    with contextlib.redirect_stdout(output):
+                        self.assertEqual(download.run_single_download({}, [name], self.output_dir), 0)
+                read.assert_not_called()
+                fetch.assert_called_once_with(
+                    download.build_spell_url(name), os.path.join(self.output_dir, name + ".png")
+                )
+                self.assertNotIn("Choose an icon", output.getvalue())
+
+    def test_spell_selection_retries_invalid_choices_without_downloading_them(self):
+        output = TerminalBuffer()
+        with patch.object(download.sys, "stdin", TerminalBuffer("0\n4\nsecond\n2\n")), patch.object(
+            download, "download_one"
+        ) as fetch, contextlib.redirect_stdout(output):
+            self.assertEqual(download.run_single_download({}, ["Rending Rage"], self.output_dir), 0)
+        self.assertEqual(output.getvalue().count("Enter a number from 1 to 3"), 3)
+        fetch.assert_called_once_with(
+            "https://render.albiononline.com/v1/spell/RENDINGCOMBO_MULTI2.png",
+            os.path.join(self.output_dir, "Rending Rage (second cast).png"),
+        )
+
+    def test_spell_selection_cancellation_and_eof_do_not_download(self):
+        for lines in ("\n", ""):
+            with self.subTest(lines=lines), patch.object(download.sys, "stdin", TerminalBuffer(lines)):
+                output = TerminalBuffer()
+                with patch.object(download, "download_one") as fetch, contextlib.redirect_stdout(output):
+                    self.assertEqual(download.main(["Hush"]), 1)
+                fetch.assert_not_called()
+                self.assertIn("[FAIL] Cancelled 'Hush'.", output.getvalue())
+
+    def test_interactive_spell_selection_continues_after_cancellation_and_download_failure(self):
+        output = TerminalBuffer()
+        lines = "Hush\n\nRending Rage\n2\nHeroic Cleave\nexit\n"
+        with patch.object(download.sys, "stdin", TerminalBuffer(lines)), patch.object(
+            download, "download_one", side_effect=[urllib.error.URLError("offline"), None]
+        ) as fetch, contextlib.redirect_stdout(output):
+            self.assertEqual(download.main([]), 1)
+        self.assertEqual(fetch.call_count, 2)
+        self.assertIn("Cancelled 'Hush'", output.getvalue())
+        self.assertIn("Download failed for spell 'Rending Rage (second cast)'", output.getvalue())
+        self.assertIn("[OK] Downloaded spell 'Heroic Cleave'", output.getvalue())
+
+    def test_eof_and_exit_commands_at_spell_menu_end_the_interactive_session(self):
+        for ending in (EOFError, "exit", "quit"):
+            output = TerminalBuffer()
+            with self.subTest(ending=ending), patch.object(download.sys, "stdin", TerminalBuffer()):
+                with patch("builtins.input", side_effect=["Hush", ending]) as read:
+                    with patch.object(download, "download_one") as fetch, contextlib.redirect_stdout(output):
+                        self.assertEqual(download.main([]), 1)
+                self.assertEqual(read.call_count, 2)
+                fetch.assert_not_called()
+                self.assertIn("Cancelled 'Hush'", output.getvalue())
+
+    def test_spell_selection_interrupt_exits_without_a_traceback(self):
+        for args in (["Hush"], []):
+            output = TerminalBuffer()
+            reads = [KeyboardInterrupt] if args else ["Hush", KeyboardInterrupt]
+            with self.subTest(args=args), patch.object(download.sys, "stdin", TerminalBuffer()):
+                with patch("builtins.input", side_effect=reads), patch.object(download, "download_one") as fetch:
+                    with contextlib.redirect_stdout(output):
+                        self.assertEqual(download.main(args), 130)
+                fetch.assert_not_called()
+                self.assertNotIn("Traceback", output.getvalue())
+
+    def test_redirected_spell_requests_keep_exact_names_without_reading_a_choice(self):
+        for stdin_tty, stdout_tty in ((False, True), (True, False), (False, False)):
+            with self.subTest(stdin_tty=stdin_tty, stdout_tty=stdout_tty):
+                output = TerminalBuffer() if stdout_tty else io.StringIO()
+                stream = TerminalBuffer("2\n") if stdin_tty else io.StringIO("2\n")
+                with patch.object(download.sys, "stdin", stream), patch("builtins.input") as read:
+                    with patch.object(download, "download_one") as fetch, contextlib.redirect_stdout(output):
+                        self.assertEqual(download.run_single_download({}, ["Rending Rage"], self.output_dir), 0)
+                read.assert_not_called()
+                self.assertEqual(stream.read(), "2\n")
+                fetch.assert_called_once_with(
+                    "https://render.albiononline.com/v1/spell/RENDINGCOMBO.png",
+                    os.path.join(self.output_dir, "Rending Rage.png"),
+                )
+
+    def test_piped_interactive_requests_do_not_consume_the_next_request_as_a_choice(self):
+        output = TerminalBuffer()
+        with patch.object(download.sys, "stdin", io.StringIO("Hush\nRending Rage\nexit\n")), patch.object(
+            download, "download_one"
+        ) as fetch, contextlib.redirect_stdout(output):
+            self.assertEqual(download.main([]), 0)
+        self.assertEqual([call.args[0] for call in fetch.call_args_list], [
+            "https://render.albiononline.com/v1/spell/WEAPON_SILENCE.png",
+            "https://render.albiononline.com/v1/spell/RENDINGCOMBO.png",
+        ])
+        self.assertNotIn("Choose an icon", output.getvalue())
+
+    def test_batch_spell_requests_never_prompt_even_in_a_terminal(self):
+        path = Path(self.output_dir) / "spells.txt"
+        path.write_text("Hush\nRending Rage\nRending Rage (second cast)\n", encoding="utf-8")
+        output = TerminalBuffer()
+        with patch.object(download.sys, "stdin", TerminalBuffer()), patch("builtins.input") as read:
+            with patch.object(download, "download_one") as fetch, contextlib.redirect_stdout(output):
+                self.assertEqual(download.run_batch_download({}, str(path), self.output_dir), 0)
+        read.assert_not_called()
+        self.assertEqual(path.read_bytes(), b"")
+        self.assertEqual({call.args[0] for call in fetch.call_args_list}, {
+            "https://render.albiononline.com/v1/spell/WEAPON_SILENCE.png",
+            "https://render.albiononline.com/v1/spell/RENDINGCOMBO.png",
+            "https://render.albiononline.com/v1/spell/RENDINGCOMBO_MULTI2.png",
+        })
 
     def test_potions_require_item_values_in_single_and_batch_modes(self):
         catalog = download.load_item_catalog()
@@ -608,10 +782,10 @@ class CatalogueTests(unittest.TestCase):
         catalog = download.load_item_catalog()
         cases = (
             ("Bow 2", "T2_2H_BOW", "Bow 2.png"),
-            ("Dungeon Map (Solo) 3 1", "T3_RANDOM_DUNGEON_SOLO_TOKEN_D1@1", "Dungeon Map (Solo) 3.1.png"),
-            ("Dungeon Map (Group) 8 4", "T8_RANDOM_DUNGEON_TOKEN_D4@4", "Dungeon Map (Group) 8.4.png"),
-            ("Waystone (Large Group) 6", "T6_RANDOM_DUNGEON_ELITE_DRAGON_TOKEN_D1@1", "Waystone (Large Group) 6.1.png"),
-            ("Waystone (Large Group) 8 4", "T8_RANDOM_DUNGEON_ELITE_DRAGON_TOKEN_D4@4", "Waystone (Large Group) 8.4.png"),
+            ("Dungeon Map (solo) 3 1", "T3_RANDOM_DUNGEON_SOLO_TOKEN_D1@1", "Dungeon Map (solo) 3.1.png"),
+            ("Dungeon Map (group) 8 4", "T8_RANDOM_DUNGEON_TOKEN_D4@4", "Dungeon Map (group) 8.4.png"),
+            ("Waystone (large group) 6", "T6_RANDOM_DUNGEON_ELITE_DRAGON_TOKEN_D1@1", "Waystone (large group) 6.1.png"),
+            ("Waystone (large group) 8 4", "T8_RANDOM_DUNGEON_ELITE_DRAGON_TOKEN_D4@4", "Waystone (large group) 8.4.png"),
             ("Swiftclaw", "T5_MOUNT_COUGAR_KEEPER@1", "Swiftclaw 5.1.png"),
             ("Beef Stew", "T8_MEAL_STEW", "Beef Stew.png"),
             ("Black Panther 8", "UNIQUE_MOUNT_BLACK_PANTHER_ADC", "Black Panther.png"),
@@ -652,7 +826,7 @@ class CatalogueTests(unittest.TestCase):
         lines = [
             "Hunter Shoes 3", "Broadsword 3 1", "Beef Stew 8 0 2",
             "Lumberjack's Journal 1", "Lumberjack's Journal 8 1",
-            "Swiftclaw 5 0", "Dungeon Map (Solo) 3 2", "Waystone (Large Group) 6 0",
+            "Swiftclaw 5 0", "Dungeon Map (solo) 3 2", "Waystone (large group) 6 0",
             "Siphoned Energy 8", "Siphoned Energy 1 0 2", "Hunter Shoes",
         ]
         for mode in ("command", "interactive", "file"):
@@ -766,7 +940,7 @@ class WindowsLauncherTests(unittest.TestCase):
             encoding="utf-8",
         )
         self.args = ["Hunter Shoes", "8", "1", "4", "Lumberjack's Journal",
-                     "Hush (Passive)", "Rending Rage (Second cast)", "batch file.txt"]
+                     "Hush (passive)", "Rending Rage (second cast)", "batch file.txt"]
 
     def assert_launcher_result(self, result, status, powershell=False):
         self.assertEqual(result.returncode, status)
@@ -831,21 +1005,23 @@ class SpellCatalogGenerationTests(unittest.TestCase):
                              {"Heroic Cleave": "CLEAVE"})
 
     def test_list_expansion_preserves_separate_passives_and_grouped_casts(self):
-        self.assertEqual(curated_spell_names("Rending Rage (Second cast, Third cast)\n\nHush (Passive)\nRending Rage\n"),
-                         ["Rending Rage", "Rending Rage (Second cast)", "Rending Rage (Third cast)", "Hush (Passive)"])
+        self.assertEqual(curated_spell_names("Rending Rage (second cast, third cast)\n\nHush (passive)\nRending Rage\n"),
+                         ["Rending Rage", "Rending Rage (second cast)", "Rending Rage (third cast)", "Hush (passive)"])
+        for label in ("passive", "Passive"):
+            self.assertEqual(curated_spell_names(f"Hush ({label})\n"), [f"Hush ({label})"])
 
     def test_generation_keeps_reviewed_ids_and_only_includes_listed_names(self):
         spells = {"FIRST": ("Example", {"@uisprite": "icon"}),
                   "SECOND": ("Example", {"@uisprite": "recast"}),
                   "REMOVED": ("Removed", {"@uisprite": "other"})}
-        previous = {"Example": "FIRST", "Example (Return)": "SECOND", "Removed": "REMOVED"}
-        self.assertEqual(select_spells(["Example", "Example (Return)"], previous, spells, {"FIRST", "REMOVED"}),
-                         {"Example": "FIRST", "Example (Return)": "SECOND"})
+        previous = {"Example": "FIRST", "Example (return)": "SECOND", "Removed": "REMOVED"}
+        self.assertEqual(select_spells(["Example", "Example (return)"], previous, spells, {"FIRST", "REMOVED"}),
+                         {"Example": "FIRST", "Example (return)": "SECOND"})
 
     def test_generation_requires_review_for_changed_or_ambiguous_icons(self):
         spells = {"ACTIVE": ("Hush", {"@uisprite": "active"}),
                   "PASSIVE": ("Hush", {"@uisprite": "passive"})}
-        for names, previous in ((["Hush"], {}), (["Hush (Passive)"], {}), (["Hush"], {"Hush": "REMOVED"})):
+        for names, previous in ((["Hush"], {}), (["Hush (passive)"], {}), (["Hush"], {"Hush": "REMOVED"})):
             with self.subTest(names=names, previous=previous), self.assertRaises(ValueError):
                 select_spells(names, previous, spells, {"ACTIVE", "PASSIVE"})
 

@@ -24,7 +24,7 @@ Limitbreaker
 
 Rending Strike
 Rending Spin
-Rending Rage (Second cast, Third cast)
+Rending Rage (second cast, third cast)
 
 Deadly Chop
 Adrenaline Boost
@@ -68,7 +68,7 @@ Force of Nature
 Shrinking Curse
 Vendetta
 Blessed Aurora
-Eye of the Storm (Aura)
+Eye of the Storm (aura)
 
 Powerful Swing
 Threatening Strike
@@ -111,12 +111,12 @@ Rushdown
 Hard to Catch
 
 Blazing Geyser
-Falcon Smash (Dive)
+Falcon Smash (dive)
 Gravitational Collapse
 Hundred Striking Fists
 Infernal Boulder
 Earth Crusher
-Purifying Combination (Second cast)
+Purifying Combination (second cast)
 Unstoppable Rush
 
 Auto Fire
@@ -156,7 +156,7 @@ Energetic
 Piercing Arrows
 Auto-Attack Speed
 
-Enchanted Quiver (Dash)
+Enchanted Quiver (dash)
 Magic Arrow
 Rain of Arrows
 Undead Arrows
@@ -246,7 +246,7 @@ Sinister Swipes
 Seedling's Bloom
 Feral Bash
 Tear Open
-Fireflash Orb (Teleport)
+Fireflash Orb (teleport)
 Boulder Crash
 Piercing Light
 Crystalburst
@@ -257,7 +257,7 @@ Tether Shift
 Polymorph
 Pounce
 Barbed Roots
-Wild Onslaught (Roar)
+Wild Onslaught (roar)
 Rip Through
 Hellfire Barrage
 Tectonic Shift
@@ -375,7 +375,7 @@ Mimic
 Lingering Power
 Energetic
 Calmness
-Hush (Passive)
+Hush (passive)
 
 Arcane Orb
 Time Freeze
@@ -503,7 +503,7 @@ Evasive Jump
 Raging Blink
 Mark of Sacrifice
 Spectral Run
-After Image (Return)
+After Image (return)
 Blind Spot
 Burning Momentum
 

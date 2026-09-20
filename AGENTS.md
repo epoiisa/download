@@ -19,7 +19,8 @@ A Python standard-library command-line tool for downloading Albion Online item a
 - Item lists contain names only, separated into groups by blank lines. Comma-separated names belong to one family; alternate names go in `aliases`. Potion tiers select Minor, standard and Major variants.
 - `lists/miscellaneous.txt` includes the five gathering journals and Siphoned Energy. Journal entries use empty journal IDs at tiers 2–8, with enchantment 0 and quality 1. Siphoned Energy uses `UNIQUE_GVGTOKEN_GENERIC`, tier 1, enchantment 0 and quality 1.
 - Spell and passive entries are limited to weapons and head, chest and feet armour, including gathering armour and shapeshifter abilities. Exclude abilities exclusive to off-hands, mounts, consumables, bags, capes, backpacks, tracking kits and gathering tools.
-- Grouped casts such as `Rending Rage (Second cast, Third cast)` include the base icon and each labelled cast. A separate ability such as `Hush (Passive)` retains its own entry.
+- Grouped casts such as `Rending Rage (second cast, third cast)` include the base icon and each labelled cast. A separate ability such as `Hush (passive)` retains its own entry.
+- Use lowercase text inside parenthetical item and spell labels.
 - Keep tree order clockwise. Group weapon spells as Q, W, passives, then item-specific E spells; group armour spells as common spells, passives, then item-specific spells.
 - During list review, JSON may temporarily differ. Update JSON after the user authorizes applying the reviewed scope. For an authorized catalogue change, update the relevant lists and JSON together.
 - Preserve the compact family-level JSON format. Use game data and the Render Service to verify names, identifiers and supported variations within the curated scope. Retain aliases and reviewed spell-ID choices.
@@ -32,8 +33,9 @@ A Python standard-library command-line tool for downloading Albion Online item a
 - Omitted enchantment selects the lowest allowed level; explicit unsupported values fail. Omitted tier is allowed only for an item with one available tier.
 - Preserve case-insensitive names, whitespace normalization, aliases, curated spell labels and access to listed spell IDs. Exact uppercase spell IDs take precedence over coincident English names.
 - Save images in the current working directory. Preserve input-based filenames, atomic image writes, and atomic batch-file rewrites that leave failed requests in their original order.
-- Accept UTF-8 batch files with or without a BOM and LF or CRLF endings. Rewrite failed lines as UTF-8 without a BOM and LF endings. Keep temporary files closed before replacement, preserve Unix permission bits on Unix, and leave Windows read-only destinations intact on replacement failure.
+- Accept UTF-8 batch files with or without a BOM, and UTF-16 LE or BE batch files with a BOM; support LF and CRLF endings. Leave files with invalid encoding or an unsupported UTF-32 BOM unchanged. Rewrite failed lines as UTF-8 without a BOM and LF endings. Keep temporary files closed before replacement, preserve Unix permission bits on Unix, and leave Windows read-only destinations intact on replacement failure.
 - Keep interactive startup silent. Request failures must not end the interactive session.
+- When input and output are terminals, offer a numbered selection for bare spell names with multiple curated icons. Explicit labels and IDs select directly; batch files and redirected input/output retain exact-name lookup. Preserve the entered spelling and append the selected variant label to its filename. Cancellation fails only that request; command and interactive Ctrl+C return status 130 without a traceback.
 - Preserve launcher arguments, standard input/output, exit status and the caller's working directory, including installation paths with spaces. Document Ctrl+D for macOS/Linux and Ctrl+Z then Enter for Windows; `exit`, `quit` and Ctrl+C remain available on both.
 - Missing or invalid catalogue data must produce a clear failure, without a fallback catalogue or traceback. Help must work without loading the catalogue.
 

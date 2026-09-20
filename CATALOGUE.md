@@ -30,7 +30,7 @@ URL: `https://render.albiononline.com/v1/item/{identifier}.png?quality={quality}
 
 ## Spells and aliases
 
-`spells` maps English names directly to spell identifiers. Parenthetical labels distinguish different icons with the same name. Grouped casts in the lists become separate entries for the main icon and each listed cast variant. Spells have no tier, enchantment or quality options.
+`spells` maps English names directly to spell identifiers. Parenthetical labels distinguish different icons with the same name. Parenthetical labels use lowercase for both items and spells. Grouped casts in the lists become separate entries for the main icon and each listed cast variant. Spells have no tier, enchantment or quality options.
 
 URL: `https://render.albiononline.com/v1/spell/{identifier}.png`
 
