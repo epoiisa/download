@@ -36,6 +36,14 @@ jobs:
           [System.Runtime.InteropServices.RuntimeInformation]::OSDescription
       - name: Test
         run: python -B -m unittest -v
+      - name: Test Windows PowerShell 5.1 installer
+        if: runner.os == 'Windows'
+        shell: powershell
+        env:
+          DOWNLOAD_TEST_POWERSHELL: powershell.exe
+        run: |
+          $PSVersionTable
+          python -B -m unittest -v test_installers.PowerShellInstallerTests
 
   package:
     needs: test

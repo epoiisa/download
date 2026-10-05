@@ -987,6 +987,8 @@ class WindowsLauncherTests(unittest.TestCase):
             self.skipTest("requires Windows PowerShell or PowerShell 7")
         arguments = ", ".join("'" + arg.replace("'", "''") + "'" for arg in self.args)
         script = (
+            # Fix the test's native-pipe encoding independently of shell defaults.
+            "$OutputEncoding = New-Object System.Text.UTF8Encoding($false)\n"
             f"$requestArgs = @({arguments})\n"
             "'input line' | & $env:DOWNLOAD_TEST_LAUNCHER @requestArgs\n"
             "exit $LASTEXITCODE\n"
