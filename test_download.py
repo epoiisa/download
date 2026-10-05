@@ -989,6 +989,7 @@ class WindowsLauncherTests(unittest.TestCase):
         script = (
             # Fix the test's native-pipe encoding independently of shell defaults.
             "$OutputEncoding = New-Object System.Text.UTF8Encoding($false)\n"
+            "[Console]::InputEncoding = $OutputEncoding\n"
             f"$requestArgs = @({arguments})\n"
             "'input line' | & $env:DOWNLOAD_TEST_LAUNCHER @requestArgs\n"
             "exit $LASTEXITCODE\n"

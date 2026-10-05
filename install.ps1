@@ -52,8 +52,9 @@
                 }
             }
         }
-        # Empty input validates startup and the catalogue without downloading icons.
-        '' | & py -3 -B (Join-Path $downloadSource 'download.py')
+        # Python supplies empty bytes, avoiding Windows PowerShell pipe BOMs.
+        # This validates startup and the catalogue without downloading icons.
+        & py -3 -B -c 'import subprocess, sys; sys.exit(subprocess.run([sys.executable, "-B", sys.argv[1]], input=b"").returncode)' (Join-Path $downloadSource 'download.py')
         if ($LASTEXITCODE -ne 0) {
             throw 'The downloaded runtime failed validation; installation was not changed.'
         }
