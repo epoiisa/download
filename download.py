@@ -28,6 +28,8 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Dict, Iterable, List, Mapping, Sequence, Tuple
 
+VERSION = "1.0.0"
+
 BASE_URL = "https://render.albiononline.com/v1/item/"
 SPELL_BASE_URL = "https://render.albiononline.com/v1/spell/"
 TIMEOUT = 15.0
@@ -48,6 +50,7 @@ USAGE = """Usage:
   download Item Name <tier> [enchant] [quality]
   download <file.txt>
   download --help
+  download --version
 
 Examples:
   download Refreshing Sprint
@@ -667,6 +670,10 @@ def main(argv: Sequence[str] | None = None) -> int:
     args = list(sys.argv[1:] if argv is None else argv)
     if args in (["-h"], ["--help"]):
         print_usage()
+        return 0
+
+    if args == ["--version"]:
+        print(f"download {VERSION}")
         return 0
 
     try:

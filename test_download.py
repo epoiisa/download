@@ -190,6 +190,15 @@ class DownloadTests(unittest.TestCase):
                 load.assert_not_called()
                 read.assert_not_called()
 
+    def test_version_does_not_load_catalogue_or_enter_interactive_mode(self):
+        output = io.StringIO()
+        with patch.object(download, "load_item_catalog") as load, patch("builtins.input") as read:
+            with contextlib.redirect_stdout(output):
+                self.assertEqual(download.main(["--version"]), 0)
+        self.assertEqual(output.getvalue(), f"download {download.VERSION}\n")
+        load.assert_not_called()
+        read.assert_not_called()
+
     def test_direct_script_propagates_failure_exit_status(self):
         result = subprocess.run(
             [sys.executable, download.__file__, "Guardian Armor", "99"],

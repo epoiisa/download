@@ -26,16 +26,17 @@
     $downloadComplete = $false
     $downloadKeepRecovery = $false
     try {
-        # One archive supplies matching code and catalogue, even if main changes.
+        # Pin the runtime to the release that supplied this installer.
+        $downloadVersion = '1.0.0'
         Write-Host 'Downloading download...'
         $downloadArchive = Join-Path $downloadStage 'source.zip'
         Invoke-WebRequest -UseBasicParsing -TimeoutSec 120 `
-            -Uri 'https://github.com/epoiisa/download/archive/refs/heads/main.zip' `
+            -Uri "https://github.com/epoiisa/download/releases/download/v$downloadVersion/download-windows.zip" `
             -OutFile $downloadArchive
         # .NET treats brackets in the user's directory name literally.
         Add-Type -AssemblyName System.IO.Compression.FileSystem
         [IO.Compression.ZipFile]::ExtractToDirectory($downloadArchive, $downloadStage)
-        $downloadSource = Join-Path $downloadStage 'download-main'
+        $downloadSource = Join-Path $downloadStage "download-$downloadVersion"
         $downloadNames = @('download.cmd', 'download.py', 'catalogue.json')
         foreach ($downloadName in $downloadNames) {
             $downloadFile = Join-Path $downloadSource $downloadName

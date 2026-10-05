@@ -10,7 +10,7 @@ A Python standard-library command-line tool for downloading Albion Online item a
 - `CATALOGUE.md` documents catalogue scope, format and source provenance.
 - `scripts/update_spells.py` updates only curated spell mappings from a specified local game-data dump.
 - `test_download.py` tests the downloader, catalogue and spell updater.
-- `install.sh` and `install.ps1` install or update the platform's three runtime files from one `main` archive, validate them before replacement, and configure the user's PATH. Keep the manual-install summary in each script and the README installation section brief.
+- `install.sh` and `install.ps1` install or update the platform's three runtime files from one version-pinned release archive, validate them before replacement, and configure the user's PATH. Keep the manual-install summary in each script and the README installation section brief.
 - `test_installers.py` checks installation, updates, PATH handling and failure recovery using temporary directories and local archives. Never use the user's real installation, shell profiles or registry for these tests.
 
 ## Catalogue authority
@@ -76,3 +76,11 @@ For catalogue or installation changes, verify representative identifier exceptio
 - Inspect the working tree before editing and preserve unrelated user changes. Do not delete the original external catalogue folder without explicit authorization.
 - Commit, push, publication and installation into the user's PATH require explicit authorization beyond local implementation.
 - Infer the GitHub identity from the repository owner, remotes and effective configuration. Before committing, verify author and signing identities; before GitHub operations, verify the owner and authenticated account. Stop on a mismatch. Preserve existing remotes and credential configuration; never change global Git configuration or expose secrets.
+
+## Releases
+
+- `download.py` contains the runtime `VERSION`; the release version in both installers must match. `download --version` works without the catalogue.
+- Use `vMAJOR.MINOR.PATCH` tags: patch for fixes and catalogue corrections, minor for compatible features or catalogue additions, major for breaking changes. Version the runtime and catalogue together.
+- `scripts/build_release.py` validates version agreement and builds the two runtime archives and standalone installers in an explicit output directory. Never include private notes, tests or game-data dumps in release assets.
+- `.github/workflows/verify.yml` runs tests and packages assets; it never publishes a release. Follow `RELEASES.md` for manually approved publication and record changes in `CHANGELOG.md`.
+- Keep release installers pinned to their own version, even when the README retrieves them through the latest-release URL. Publish all assets together before making a release available.

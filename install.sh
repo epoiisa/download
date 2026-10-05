@@ -73,14 +73,15 @@ download_install() (
     trap 'exit 130' INT
     trap 'exit 143' TERM
 
-    # One archive supplies matching code and catalogue, even if main changes.
+    # Pin the runtime to the release that supplied this installer.
+    download_version=1.0.0
     printf '%s\n' 'Downloading download...'
     curl -fsSL --connect-timeout 15 --max-time 120 --retry 2 \
-        https://github.com/epoiisa/download/archive/refs/heads/main.tar.gz \
+        "https://github.com/epoiisa/download/releases/download/v$download_version/download-unix.tar.gz" \
         -o "$download_stage/source.tar.gz"
     tar -xzf "$download_stage/source.tar.gz" -C "$download_stage" \
-        download-main/download download-main/download.py download-main/catalogue.json
-    download_source="$download_stage/download-main"
+        "download-$download_version/download" "download-$download_version/download.py" "download-$download_version/catalogue.json"
+    download_source="$download_stage/download-$download_version"
     for download_name in download download.py catalogue.json; do
         if [ ! -f "$download_source/$download_name" ] || [ -L "$download_source/$download_name" ]; then
             printf 'Archive is missing a regular file: %s\n' "$download_name" >&2

@@ -13,6 +13,8 @@ import unittest
 import zipfile
 from pathlib import Path
 
+from download import VERSION
+
 
 ROOT = Path(__file__).resolve().parent
 RUNTIME_FILES = ("download", "download.py", "catalogue.json")
@@ -44,19 +46,21 @@ import os, shutil, sys
 if os.environ.get('DOWNLOAD_TEST_NETWORK_FAIL'):
     print('Simulated download failure', file=sys.stderr)
     sys.exit(22)
+expected = 'https://github.com/epoiisa/download/releases/download/v' + os.environ['DOWNLOAD_TEST_VERSION'] + '/download-unix.tar.gz'
+assert expected in sys.argv, sys.argv
 shutil.copyfile(os.environ['DOWNLOAD_TEST_ARCHIVE'], sys.argv[sys.argv.index('-o') + 1])
 """)
         # Only child processes see the fixture user directory and command shims.
         self.env = dict(os.environ, HOME=str(self.user_dir), SHELL="/bin/zsh",
                         PATH=str(self.bin_dir) + os.pathsep + os.environ["PATH"],
-                        DOWNLOAD_TEST_ARCHIVE=str(self.archive), PYTHONDONTWRITEBYTECODE="1")
+                        DOWNLOAD_TEST_ARCHIVE=str(self.archive), DOWNLOAD_TEST_VERSION=VERSION, PYTHONDONTWRITEBYTECODE="1")
         self.env.pop("ZDOTDIR", None)
         self.env.pop("XDG_CONFIG_HOME", None)
 
     def make_archive(self):
         with tarfile.open(self.archive, "w:gz") as archive:
             for name in RUNTIME_FILES:
-                archive.add(self.fixture / name, arcname="download-main/" + name)
+                archive.add(self.fixture / name, arcname="download-" + VERSION + "/" + name)
 
     def write_command(self, name, code):
         helper = self.bin_dir / (name + ".py")
@@ -165,7 +169,7 @@ shutil.copyfile(os.environ['DOWNLOAD_TEST_ARCHIVE'], sys.argv[sys.argv.index('-o
         self.write_command("mv", """
 import os, sys
 from pathlib import Path
-if Path(sys.argv[-2]).parent.name == 'download-main' and Path(sys.argv[-1]).name == 'download.py':
+if Path(sys.argv[-2]).parent.name.startswith('download-') and Path(sys.argv[-1]).name == 'download.py':
     print('Simulated replacement failure', file=sys.stderr)
     sys.exit(1)
 os.execv(REAL_MV, [REAL_MV] + sys.argv[1:])
@@ -250,6 +254,7 @@ function py {
 function Invoke-WebRequest {
     param($Uri, $OutFile, $TimeoutSec, [switch] $UseBasicParsing)
     if ($env:DOWNLOAD_TEST_NETWORK_FAIL) { throw 'Simulated download failure' }
+    if ($Uri -ne "https://github.com/epoiisa/download/releases/download/v$env:DOWNLOAD_TEST_VERSION/download-windows.zip") { throw "Unexpected release URL: $Uri" }
     Copy-Item -LiteralPath $env:DOWNLOAD_TEST_ARCHIVE -Destination $OutFile
 }
 $testStatus = 0
@@ -267,7 +272,7 @@ exit $testStatus
         self.harness = self.sandbox / "test.ps1"
         self.harness.write_text(harness, encoding="utf-8")
         self.env = dict(os.environ, OS="Windows_NT", LOCALAPPDATA=str(self.local_data),
-                        DOWNLOAD_TEST_ARCHIVE=str(self.archive), DOWNLOAD_TEST_PYTHON=sys.executable,
+                        DOWNLOAD_TEST_ARCHIVE=str(self.archive), DOWNLOAD_TEST_VERSION=VERSION, DOWNLOAD_TEST_PYTHON=sys.executable,
                         DOWNLOAD_TEST_USER_PATH="C:\\Existing Tools;C:\\Other Tools", PYTHONDONTWRITEBYTECODE="1")
 
     def make_archive(self, invalid=False, suffix=b""):
@@ -278,7 +283,7 @@ exit $testStatus
                     content = b"{}"
                 if name == "download.py":
                     content += suffix
-                archive.writestr("download-main/" + name, content)
+                archive.writestr("download-" + VERSION + "/" + name, content)
 
     def install(self, **overrides):
         result = subprocess.run([POWERSHELL, "-NoLogo", "-NoProfile", "-NonInteractive",

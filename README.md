@@ -6,23 +6,24 @@ Game data is sourced from [ao-data/ao-bin-dumps](https://github.com/ao-data/ao-b
 
 ## Install or update
 
-Requires [Python 3.8+](https://www.python.org/downloads/) (`python3` on macOS/Linux, `py -3` on Windows). No third-party packages or administrator access are needed. Run the command for your platform from any directory; run it again to update.
+Requires [Python 3.8+](https://www.python.org/downloads/) (`python3` on macOS/Linux, `py -3` on Windows). No third-party packages or administrator access are needed. Run the command for your platform from any directory; run it again to update to the latest stable release.
 
 ### macOS and Linux
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/epoiisa/download/main/install.sh | sh
+curl -fsSL https://github.com/epoiisa/download/releases/latest/download/install.sh | sh
 ```
 
 ### Windows PowerShell
 
 ```powershell
-irm https://raw.githubusercontent.com/epoiisa/download/main/install.ps1 | iex
+irm https://github.com/epoiisa/download/releases/latest/download/install.ps1 | iex
 ```
 
 On all platforms, reopen your terminal application, then check:
 
 ```text
+download --version
 download --help
 ```
 
