@@ -24,6 +24,16 @@ Both archives use the directory `download-VERSION`. Each installer fetches its o
 
 The GitHub verification workflow runs the test suite on Linux, macOS and Windows, including Python 3.8 on Linux, and packages assets only after every job passes. Workflow artifacts are build outputs; they are not published releases. Hosted checks do not cover every native console interaction or real persistent PATH configuration.
 
+## GitHub safeguards
+
+Issues and Discussions remain enabled for bug reports and user conversations. Wiki and Projects are disabled; installation and usage documentation stay in the repository.
+
+GitHub Actions allows GitHub-owned actions only. Workflow tokens default to read-only access and cannot approve pull requests; fork workflows from all outside contributors require maintainer approval. Keep verification and packaging separate from release publication.
+
+Private vulnerability reporting, Dependabot alerts and security updates are enabled. CodeQL uses default setup for Python and GitHub Actions. `.github/dependabot.yml` schedules weekly grouped updates for GitHub Actions; the Python runtime has no third-party dependencies.
+
+The active `main` ruleset blocks deletion and force pushes while allowing normal direct pushes. The release-tag ruleset blocks updates and deletion of `v*` tags without a configured bypass. Pull requests use squash merging, with merged branches deleted automatically; auto-merge remains disabled.
+
 ## Publish
 
 Committing, pushing, tagging and publishing require explicit user authorization. Before doing so, verify the effective Git author and signing identity, repository owner `epoiisa`, and the authenticated GitHub account.
