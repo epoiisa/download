@@ -1,6 +1,6 @@
-This code is written and maintained using AI (Codex).
+This code is written and maintained using AI.
 
-Data source: [ao-data/ao-bin-dumps](https://github.com/ao-data/ao-bin-dumps).
+Game data is sourced from [ao-data/ao-bin-dumps](https://github.com/ao-data/ao-bin-dumps).
 
 # Download icons for Albion Online
 
