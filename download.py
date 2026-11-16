@@ -28,7 +28,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Dict, Iterable, List, Mapping, Sequence, Tuple
 
-VERSION = "1.0.0"
+VERSION = "1.1.0"
 
 BASE_URL = "https://render.albiononline.com/v1/item/"
 SPELL_BASE_URL = "https://render.albiononline.com/v1/spell/"

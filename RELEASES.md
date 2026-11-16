@@ -47,6 +47,22 @@ Committing, pushing, tagging and publishing require explicit user authorization.
 
 The latest-release installation links become usable after the first release is published.
 
+## v1.1.0 local verification
+
+Verified on 16 November 2026 using macOS 27.0.1 and Python 3.14.8: 82 tests ran, with 74 passing and 8 skipped. Three native Windows checks and five PowerShell checks remain unavailable; PowerShell is not installed. Linux and Python 3.8 were not tested in this run.
+
+A temporary three-file installation from the built Unix release archive passed nine live PNG downloads across command, interactive and UTF-16 BOM/CRLF batch modes, including output replacement with permission preservation and paths with spaces and brackets. All three Firewing Drake icons downloaded successfully. Siphoned Energy, Swiftclaw and an enchanted Dungeon Map also verified identifier exceptions. The drake entries accepted omitted or explicit tier 8, enchantment 0 and quality 1, and rejected unsupported values. The suite validated release packaging and matching version numbers; `download --version` reported `download 1.1.0`.
+
+This unreleased minor version includes the earlier Waystone correction prepared as v1.0.1. Existing Waystone rendering limitations still apply. No release was published.
+
+With user approval on 16 November 2026, the three matching runtime files were installed locally in `~/.local/bin`. The installed `download` reported version 1.1.0 and downloaded Firewing Drake Egg, Tame Firewing Drake and Firewing Drake successfully across command, interactive and UTF-16 BOM/CRLF batch modes from another working directory.
+
+## v1.0.1 local verification
+
+Verified on 16 November 2026 using macOS 27.0.1 and Python 3.9.6: 82 tests ran, with 74 passing and 8 skipped. Three native Windows checks and five PowerShell checks remain unavailable; PowerShell is not installed.
+
+A temporary three-file installation in a path with spaces accepted `Waystone (Large Group) 8 0` in command, interactive and batch modes, reaching the download step with the expected URL and filename. These checks mocked the image download and do not establish successful rendering by Albion. Default and explicit enchantment levels 0–4 resolved correctly at tiers 6–8. The suite also validated release packaging and matching version numbers. This version has not been published.
+
 ## v1.0.0 verification
 
 Verified locally on 5 October 2026 using macOS 27.0.1:

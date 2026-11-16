@@ -27,7 +27,7 @@
     $downloadKeepRecovery = $false
     try {
         # Pin the runtime to the release that supplied this installer.
-        $downloadVersion = '1.0.0'
+        $downloadVersion = '1.1.0'
         Write-Host 'Downloading download...'
         $downloadArchive = Join-Path $downloadStage 'source.zip'
         Invoke-WebRequest -UseBasicParsing -TimeoutSec 120 `

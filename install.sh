@@ -74,7 +74,7 @@ download_install() (
     trap 'exit 143' TERM
 
     # Pin the runtime to the release that supplied this installer.
-    download_version=1.0.0
+    download_version=1.1.0
     printf '%s\n' 'Downloading download...'
     curl -fsSL --connect-timeout 15 --max-time 120 --retry 2 \
         "https://github.com/epoiisa/download/releases/download/v$download_version/download-unix.tar.gz" \

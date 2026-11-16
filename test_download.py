@@ -801,7 +801,11 @@ class CatalogueTests(unittest.TestCase):
             ("Bow 2", "T2_2H_BOW", "Bow 2.png"),
             ("Dungeon Map (Solo) 3 1", "T3_RANDOM_DUNGEON_SOLO_TOKEN_D1@1", "Dungeon Map (Solo) 3.1.png"),
             ("Dungeon Map (Group) 8 4", "T8_RANDOM_DUNGEON_TOKEN_D4@4", "Dungeon Map (Group) 8.4.png"),
-            ("Waystone (Large Group) 6", "T6_RANDOM_DUNGEON_ELITE_DRAGON_TOKEN_D1@1", "Waystone (Large Group) 6.1.png"),
+            ("Waystone (Large Group) 6", "T6_RANDOM_DUNGEON_ELITE_DRAGON_TOKEN_D1", "Waystone (Large Group) 6.png"),
+            ("Waystone (Large Group) 8 0", "T8_RANDOM_DUNGEON_ELITE_DRAGON_TOKEN_D1", "Waystone (Large Group) 8.png"),
+            ("Waystone (Large Group) 8 1", "T8_RANDOM_DUNGEON_ELITE_DRAGON_TOKEN_D1@1", "Waystone (Large Group) 8.1.png"),
+            ("Waystone (Large Group) 8 2", "T8_RANDOM_DUNGEON_ELITE_DRAGON_TOKEN_D2@2", "Waystone (Large Group) 8.2.png"),
+            ("Waystone (Large Group) 8 3", "T8_RANDOM_DUNGEON_ELITE_DRAGON_TOKEN_D3@3", "Waystone (Large Group) 8.3.png"),
             ("Waystone (Large Group) 8 4", "T8_RANDOM_DUNGEON_ELITE_DRAGON_TOKEN_D4@4", "Waystone (Large Group) 8.4.png"),
             ("Swiftclaw", "T5_MOUNT_COUGAR_KEEPER@1", "Swiftclaw 5.1.png"),
             ("Beef Stew", "T8_MEAL_STEW", "Beef Stew.png"),
@@ -843,7 +847,7 @@ class CatalogueTests(unittest.TestCase):
         lines = [
             "Hunter Shoes 3", "Broadsword 3 1", "Beef Stew 8 0 2",
             "Lumberjack's Journal 1", "Lumberjack's Journal 8 1",
-            "Swiftclaw 5 0", "Dungeon Map (Solo) 3 2", "Waystone (Large Group) 6 0",
+            "Swiftclaw 5 0", "Dungeon Map (Solo) 3 2", "Waystone (Large Group) 5 0",
             "Siphoned Energy 8", "Siphoned Energy 1 0 2", "Hunter Shoes",
         ]
         for mode in ("command", "interactive", "file"):
